@@ -1,0 +1,333 @@
+@page
+@model IPCamLapse.Pages.Sessions.CreateModel
+@{
+    ViewData["Title"] = "New Session";
+}
+
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-page="/Index">Dashboard</a></li>
+            <li class="breadcrumb-item active">New Session</li>
+        </ol>
+    </nav>
+    <h1 class="h2"><i class="bi bi-plus-circle text-primary me-2"></i>New Timelapse Session</h1>
+</div>
+
+<form method="post" id="createForm">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <!-- Preset Cards -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Presets</h5>
+            <small class="text-muted">Select a preset or configure manually below</small>
+        </div>
+        <div class="card-body">
+            <div class="row g-3" id="presets-grid">
+                @foreach (var preset in Model.Presets)
+                {
+                    <div class="col-md-4 col-sm-6">
+                        <div class="preset-card card h-100 border-2 cursor-pointer"
+                             onclick="applyPreset(@preset.CaptureIntervalSeconds, @preset.CaptureDurationSeconds, @preset.VideoTargetDurationSeconds, '@preset.Name', this)">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-start mb-2">
+                                    <span class="fs-2 me-2">@preset.Icon</span>
+                                    <div>
+                                        <h6 class="mb-0 fw-semibold">@preset.Name</h6>
+                                        <span class="badge @preset.BadgeClass mt-1">Preset</span>
+                                    </div>
+                                </div>
+                                <p class="small text-muted mb-0">@preset.Description</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Session Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Session Name -->
+                    <div class="mb-4">
+                        <label asp-for="Session.Name" class="form-label fw-semibold">Session Name <span class="text-danger">*</span></label>
+                        <input asp-for="Session.Name" class="form-control form-control-lg" placeholder="e.g., Backyard Garden 2024" required />
+                        <span asp-validation-for="Session.Name" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Camera URL -->
+                    <div class="mb-3">
+                        <label asp-for="Session.Configuration.CameraUrl" class="form-label fw-semibold">Camera Snapshot URL <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-camera"></i></span>
+                            <input asp-for="Session.Configuration.CameraUrl" class="form-control" 
+                                   placeholder="http://192.168.1.100/snapshot.jpg" required />
+                            <button type="button" class="btn btn-outline-secondary" onclick="testCamera()">
+                                <i class="bi bi-wifi me-1"></i>Test
+                            </button>
+                        </div>
+                        <span asp-validation-for="Session.Configuration.CameraUrl" class="text-danger small"></span>
+                        <div id="camera-test-result" class="mt-2 d-none"></div>
+                    </div>
+
+                    <!-- Credentials -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <label asp-for="Session.Configuration.Username" class="form-label fw-semibold">Username</label>
+                            <input asp-for="Session.Configuration.Username" class="form-control" placeholder="Optional" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label asp-for="Session.Configuration.Password" class="form-label fw-semibold">Password</label>
+                            <div class="input-group">
+                                <input asp-for="Session.Configuration.Password" type="password" class="form-control" placeholder="Optional" id="passwordField" />
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword()">
+                                    <i class="bi bi-eye" id="eyeIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <!-- Timing Settings -->
+                    <h6 class="fw-semibold mb-3"><i class="bi bi-stopwatch me-2"></i>Timing</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label asp-for="Session.Configuration.CaptureIntervalSeconds" class="form-label fw-semibold">Capture Interval</label>
+                            <div class="input-group">
+                                <input asp-for="Session.Configuration.CaptureIntervalSeconds" type="number" class="form-control" min="5" max="86400" id="intervalInput" oninput="updateIntervalDisplay()" />
+                                <span class="input-group-text">seconds</span>
+                            </div>
+                            <div class="form-text" id="intervalDisplay">Every 5 minutes</div>
+                            <span asp-validation-for="Session.Configuration.CaptureIntervalSeconds" class="text-danger small"></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <label asp-for="Session.Configuration.CaptureDurationSeconds" class="form-label fw-semibold">Total Duration</label>
+                            <div class="input-group">
+                                <input asp-for="Session.Configuration.CaptureDurationSeconds" type="number" class="form-control" min="60" id="durationInput" oninput="updateDurationDisplay()" />
+                                <span class="input-group-text">seconds</span>
+                            </div>
+                            <div class="form-text" id="durationDisplay">1 day</div>
+                            <span asp-validation-for="Session.Configuration.CaptureDurationSeconds" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label asp-for="Session.Configuration.VideoTargetDurationSeconds" class="form-label fw-semibold">Video Duration</label>
+                            <div class="input-group">
+                                <input asp-for="Session.Configuration.VideoTargetDurationSeconds" type="number" step="0.5" class="form-control" min="1" max="600" />
+                                <span class="input-group-text">seconds</span>
+                            </div>
+                            <span asp-validation-for="Session.Configuration.VideoTargetDurationSeconds" class="text-danger small"></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label fw-semibold">Estimated Frames</label>
+                            <div class="form-control bg-light" id="frameEstimate">288 frames</div>
+                            <div class="form-text" id="fpsEstimate">at ~9.6 fps</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Panel -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="summary-item d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Preset</span>
+                        <span class="fw-semibold" id="summary-preset">Custom</span>
+                    </div>
+                    <div class="summary-item d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Frames</span>
+                        <span class="fw-semibold" id="summary-frames">288</span>
+                    </div>
+                    <div class="summary-item d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Interval</span>
+                        <span class="fw-semibold" id="summary-interval">5 min</span>
+                    </div>
+                    <div class="summary-item d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Duration</span>
+                        <span class="fw-semibold" id="summary-duration">1 day</span>
+                    </div>
+                    <div class="summary-item d-flex justify-content-between py-2">
+                        <span class="text-muted">Video</span>
+                        <span class="fw-semibold" id="summary-video">30s @@9.6fps</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera Preview -->
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-image me-2"></i>Preview</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadPreview()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body p-2">
+                    <div id="preview-container" class="text-center py-4 text-muted">
+                        <i class="bi bi-camera display-4"></i>
+                        <p class="small mt-2">Enter camera URL and click Test</p>
+                    </div>
+                    <img id="preview-img" src="" alt="Camera preview" class="img-fluid rounded d-none" style="max-height: 200px; object-fit: contain;" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden preset name field -->
+    <input asp-for="Session.Configuration.PresetName" type="hidden" id="presetNameInput" />
+
+    <div class="mt-4 d-flex gap-3">
+        <button type="submit" class="btn btn-primary btn-lg px-5">
+            <i class="bi bi-check-circle me-2"></i>Create Session
+        </button>
+        <a asp-page="/Index" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-x-circle me-2"></i>Cancel
+        </a>
+    </div>
+</form>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+    <script>
+        function updateIntervalDisplay() {
+            const val = parseInt(document.getElementById('intervalInput').value) || 0;
+            const display = document.getElementById('intervalDisplay');
+            display.textContent = formatSeconds(val);
+            document.getElementById('summary-interval').textContent = formatShort(val);
+            updateEstimates();
+        }
+
+        function updateDurationDisplay() {
+            const val = parseInt(document.getElementById('durationInput').value) || 0;
+            document.getElementById('durationDisplay').textContent = formatDuration(val);
+            document.getElementById('summary-duration').textContent = formatDuration(val);
+            updateEstimates();
+        }
+
+        function updateEstimates() {
+            const interval = parseInt(document.getElementById('intervalInput').value) || 1;
+            const duration = parseInt(document.getElementById('durationInput').value) || 0;
+            const videoDuration = parseFloat(document.querySelector('[name="Session.Configuration.VideoTargetDurationSeconds"]').value) || 30;
+            const frames = Math.floor(duration / interval);
+            const fps = frames / videoDuration;
+            document.getElementById('frameEstimate').textContent = `${frames} frames`;
+            document.getElementById('fpsEstimate').textContent = `at ~${fps.toFixed(1)} fps`;
+            document.getElementById('summary-frames').textContent = frames;
+            document.getElementById('summary-video').textContent = `${videoDuration}s @@ ${fps.toFixed(1)}fps`;
+        }
+
+        function formatSeconds(s) {
+            if (s < 60) return `Every ${s} seconds`;
+            if (s < 3600) return `Every ${Math.floor(s/60)} minute${Math.floor(s/60)>1?'s':''}`;
+            return `Every ${Math.floor(s/3600)} hour${Math.floor(s/3600)>1?'s':''}`;
+        }
+
+        function formatShort(s) {
+            if (s < 60) return `${s}s`;
+            if (s < 3600) return `${Math.floor(s/60)}m`;
+            return `${Math.floor(s/3600)}h`;
+        }
+
+        function formatDuration(s) {
+            if (s < 3600) return `${Math.floor(s/60)} minutes`;
+            if (s < 86400) return `${Math.floor(s/3600)} hours`;
+            if (s < 604800) return `${Math.floor(s/86400)} days`;
+            if (s < 2592000) return `${Math.floor(s/604800)} weeks`;
+            if (s < 31536000) return `${Math.floor(s/2592000)} months`;
+            return `${Math.floor(s/31536000)} years`;
+        }
+
+        function applyPreset(interval, duration, videoDuration, name, card) {
+            document.getElementById('intervalInput').value = interval;
+            document.getElementById('durationInput').value = duration;
+            document.querySelector('[name="Session.Configuration.VideoTargetDurationSeconds"]').value = videoDuration;
+            document.getElementById('presetNameInput').value = name;
+            updateIntervalDisplay();
+            updateDurationDisplay();
+            document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('border-primary', 'bg-primary-subtle'));
+            card.classList.add('border-primary', 'bg-primary-subtle');
+            document.getElementById('summary-preset').textContent = name;
+        }
+
+        async function testCamera() {
+            const url = document.querySelector('[name="Session.Configuration.CameraUrl"]').value;
+            const username = document.querySelector('[name="Session.Configuration.Username"]').value;
+            const password = document.querySelector('[name="Session.Configuration.Password"]').value;
+            if (!url) { alert('Please enter a camera URL first'); return; }
+
+            const resultDiv = document.getElementById('camera-test-result');
+            resultDiv.className = 'mt-2 alert alert-info';
+            resultDiv.textContent = 'Testing connection...';
+
+            try {
+                let testUrl = `/api/camera/test?url=${encodeURIComponent(url)}`;
+                if (username) testUrl += `&username=${encodeURIComponent(username)}`;
+                if (password) testUrl += `&password=${encodeURIComponent(password)}`;
+                const r = await fetch(testUrl);
+                if (r.ok) {
+                    resultDiv.className = 'mt-2 alert alert-success';
+                    resultDiv.innerHTML = '<i class="bi bi-check-circle me-1"></i>Camera connected successfully!';
+                    loadPreview();
+                } else {
+                    resultDiv.className = 'mt-2 alert alert-danger';
+                    resultDiv.innerHTML = '<i class="bi bi-x-circle me-1"></i>Failed to connect to camera. Check URL and credentials.';
+                }
+            } catch {
+                resultDiv.className = 'mt-2 alert alert-danger';
+                resultDiv.innerHTML = '<i class="bi bi-x-circle me-1"></i>Connection error. Check the URL.';
+            }
+        }
+
+        async function loadPreview() {
+            const url = document.querySelector('[name="Session.Configuration.CameraUrl"]').value;
+            const username = document.querySelector('[name="Session.Configuration.Username"]').value;
+            const password = document.querySelector('[name="Session.Configuration.Password"]').value;
+            if (!url) return;
+
+            try {
+                let fetchUrl = `/api/camera/snapshot?url=${encodeURIComponent(url)}`;
+                if (username) fetchUrl += `&username=${encodeURIComponent(username)}`;
+                if (password) fetchUrl += `&password=${encodeURIComponent(password)}`;
+                const r = await fetch(fetchUrl);
+                if (r.ok) {
+                    const blob = await r.blob();
+                    const imgUrl = URL.createObjectURL(blob);
+                    const img = document.getElementById('preview-img');
+                    img.src = imgUrl;
+                    img.classList.remove('d-none');
+                    document.getElementById('preview-container').classList.add('d-none');
+                }
+            } catch { /* silent */ }
+        }
+
+        function togglePassword() {
+            const field = document.getElementById('passwordField');
+            const icon = document.getElementById('eyeIcon');
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                field.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        }
+
+        // Initialize displays on load
+        updateIntervalDisplay();
+        updateDurationDisplay();
+    </script>
+}
