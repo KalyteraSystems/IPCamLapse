@@ -209,11 +209,17 @@ public class CaptureBackgroundService : BackgroundService
 
     public override void Dispose()
     {
-        foreach (var cts in _sessionCts.Values)
+        try
         {
-            cts.Cancel();
-            cts.Dispose();
+            foreach (var cts in _sessionCts.Values)
+            {
+                try { cts.Cancel(); } catch { /* ignore */ }
+                cts.Dispose();
+            }
         }
-        base.Dispose();
+        finally
+        {
+            base.Dispose();
+        }
     }
 }

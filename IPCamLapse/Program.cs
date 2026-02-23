@@ -12,6 +12,7 @@ builder.Services.AddHttpClient("Camera", client =>
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
+    // IP cameras commonly use self-signed certificates; accept any certificate for camera connections
     ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
 });
 
