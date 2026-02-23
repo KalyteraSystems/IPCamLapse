@@ -76,7 +76,12 @@ public class VideoService : IVideoService
             var fileListPath = Path.Combine(Path.GetTempPath(), $"ffmpeg_list_{Guid.NewGuid():N}.txt");
             try
             {
-                var lines = imageFiles.Select(f => $"file '{f.Replace("'", "\\'")}'");
+                double frameDuration = targetDurationSeconds / imageFiles.Length;
+                var lines = imageFiles.SelectMany(f => new[]
+                {
+                    $"file '{f.Replace("'", "\\'")}'",
+                    $"duration {frameDuration.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}"
+                });
                 await File.WriteAllLinesAsync(fileListPath, lines, cancellationToken);
 
                 Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
