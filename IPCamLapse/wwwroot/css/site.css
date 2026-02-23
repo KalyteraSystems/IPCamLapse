@@ -1,0 +1,255 @@
+/* ===== CSS Variables ===== */
+:root {
+    --sidebar-width: 250px;
+    --topbar-height: 56px;
+    --sidebar-bg: #1e2a3a;
+    --sidebar-text: #a8b9cc;
+    --sidebar-active: #ffffff;
+    --sidebar-hover-bg: rgba(255,255,255,0.08);
+    --sidebar-active-bg: rgba(99,179,237,0.2);
+    --sidebar-border: rgba(255,255,255,0.1);
+    --topbar-bg: #ffffff;
+    --topbar-border: #e9ecef;
+}
+
+/* ===== Layout ===== */
+body.has-sidebar {
+    margin: 0;
+    padding: 0;
+    background: #f4f6f9;
+    min-height: 100vh;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--topbar-height);
+}
+
+.sidebar-brand {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-brand:hover { color: #7dd3fc; }
+
+.sidebar-body {
+    flex: 1;
+    padding: 1rem 0;
+}
+
+.sidebar .nav-link {
+    color: var(--sidebar-text);
+    padding: 0.6rem 1.25rem;
+    border-radius: 0;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.sidebar .nav-link:hover {
+    color: var(--sidebar-active);
+    background: var(--sidebar-hover-bg);
+}
+
+.sidebar .nav-link.active {
+    color: var(--sidebar-active);
+    background: var(--sidebar-active-bg);
+    border-right: 3px solid #63b3ed;
+    font-weight: 600;
+}
+
+.sidebar-section-title {
+    padding: 0.75rem 1.25rem 0.25rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(168,185,204,0.5);
+    font-weight: 600;
+}
+
+.sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--sidebar-border);
+}
+
+.sidebar-toggle {
+    color: var(--sidebar-text);
+    border: none;
+}
+
+/* ===== Sidebar Overlay (mobile) ===== */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+}
+
+.sidebar-overlay.show { display: block; }
+
+/* ===== Main Wrapper ===== */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition: margin-left 0.3s ease;
+}
+
+/* ===== Topbar ===== */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--topbar-border);
+    padding: 0 1.5rem;
+    height: var(--topbar-height);
+    display: flex;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* ===== Page Content ===== */
+.page-content {
+    flex: 1;
+    padding: 1.75rem;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 991.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-wrapper {
+        margin-left: 0;
+    }
+}
+
+/* ===== Cards ===== */
+.session-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 0.75rem;
+}
+
+.session-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12) !important;
+}
+
+.session-card .card-header {
+    border-radius: 0.75rem 0.75rem 0 0 !important;
+    background: rgba(0,0,0,0.02);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.session-card.border-success { border-color: #198754 !important; }
+.session-card.border-danger { border-color: #dc3545 !important; }
+
+/* ===== Stat Boxes ===== */
+.stat-box {
+    transition: background 0.2s;
+}
+
+.stat-box:hover {
+    background: #e9ecef !important;
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+    padding: 3rem;
+    animation: fadeInUp 0.5s ease;
+}
+
+/* ===== Preset Cards ===== */
+.preset-card {
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 0.5rem;
+}
+
+.preset-card:hover {
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 4px 12px rgba(13,110,253,0.15);
+    transform: translateY(-2px);
+}
+
+.preset-card.border-primary {
+    background: var(--bs-primary-bg-subtle, #cfe2ff) !important;
+}
+
+/* ===== Video Player ===== */
+#video-player {
+    border-radius: 0.5rem;
+    background: #000;
+}
+
+/* ===== Progress Animation ===== */
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* ===== Animations ===== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.pulse { animation: pulse 2s infinite; }
+
+/* ===== Misc ===== */
+.cursor-pointer { cursor: pointer; }
+
+code {
+    background: #f0f4f8;
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: #e83e8c;
+}
+
+.page-footer {
+    background: #ffffff;
+    border-top-color: var(--topbar-border) !important;
+}
+
+/* ===== Table tweaks ===== */
+.table > :not(caption) > * > * {
+    padding: 0.5rem 0.75rem;
+}

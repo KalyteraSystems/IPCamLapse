@@ -1,0 +1,49 @@
+# .NET
+*.swp
+*.*~
+project.lock.json
+.DS_Store
+*.pyc
+nupkg/
+
+# Visual Studio
+.vs/
+**/obj/
+**/bin/
+*.user
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates
+.classpath
+*.launch
+*.settings
+local.settings.json
+launchSettings.json
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# User files
+*.rsuser
+*.user
+*.userosscache
+*.sln.docstates
+
+# Data directory
+/IPCamLapse/data/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
