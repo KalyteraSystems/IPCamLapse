@@ -86,7 +86,7 @@ Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECU
 
 Runtime data is stored under the configured data path and excluded from Git. Existing v0.1 session JSON remains readable. A session interrupted by an application restart is restored as paused rather than silently resumed.
 
-See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries. Planned work is tracked in the [Roadmap](docs/ROADMAP.md).
+See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries. Planned work is tracked in the [Roadmap](docs/ROADMAP.md), and release changes are listed in the [Changelog](CHANGELOG.md).
 
 ## Development
 

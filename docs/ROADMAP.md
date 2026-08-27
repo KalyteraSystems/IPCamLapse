@@ -9,11 +9,11 @@ IPCamLapse is developed in small, testable releases. Issues are the source of tr
 - Demo camera, scheduling, camera profiles, and storage policies
 - Timeline gallery and configurable video rendering
 - Self-contained Windows and Linux releases
+- Container images for Linux AMD64 and ARM64
 - End-to-end capture, render, and download tests
 
 ## Next
 
-- Container images for Linux AMD64 and ARM64
 - WinGet installation for Windows
 - Linux ARM64 self-contained archive ([#10](https://github.com/KalyteraSystems/IPCamLapse/issues/10))
 - Small timeline and activity-log improvements ([good first issues](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue))
