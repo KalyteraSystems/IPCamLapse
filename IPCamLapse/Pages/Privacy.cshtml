@@ -1,20 +1,17 @@
 ﻿@page
 @model PrivacyModel
 @{
-    ViewData["Title"] = "Privacy Policy";
+    ViewData["Title"] = "Privacy";
 }
 <h1>@ViewData["Title"]</h1>
 
-<p>IPCamLapse is a local-first application. It does not include analytics, advertising, telemetry, or cloud storage.</p>
+<p>IPCamLapse has no analytics, advertising, telemetry, or cloud storage.</p>
 
-<h2 class="h4 mt-4">Data stored on this computer</h2>
-<p>Session settings, camera URLs, usernames, capture timestamps, JPEG frames, and generated videos are stored below the application's <code>data/sessions</code> directory. Camera passwords are protected at rest with ASP.NET Core Data Protection, but the running application can access them when it connects to a camera.</p>
+<h2 class="h4 mt-4">Local data</h2>
+<p>Settings, frames, and videos are stored in <code>data/sessions</code>. Camera passwords are protected at rest with ASP.NET Core Data Protection.</p>
 
-<h2 class="h4 mt-4">Browser data</h2>
-<p>The application uses an anti-forgery cookie to protect state-changing requests. It does not use tracking cookies.</p>
+<h2 class="h4 mt-4">Network</h2>
+<p>The app connects to the camera endpoints you configure. It uses an anti-forgery cookie, not tracking cookies.</p>
 
-<h2 class="h4 mt-4">Network requests</h2>
-<p>At runtime, IPCamLapse connects only to the camera endpoints you configure. Anyone exposing the app through a reverse proxy is responsible for that proxy's authentication, logging, and privacy practices.</p>
-
-<h2 class="h4 mt-4">Deleting data</h2>
-<p>Deleting a session removes its metadata, captured images, and generated videos from the session storage directory. Normal file-system backup and recovery tools may retain copies outside IPCamLapse's control.</p>
+<h2 class="h4 mt-4">Deletion</h2>
+<p>Deleting a session removes its app-managed settings, frames, and videos. External backups may retain copies.</p>

@@ -214,7 +214,7 @@ public class CaptureBackgroundService : BackgroundService
         {
             foreach (var cts in _sessionCts.Values)
             {
-                try { cts.Cancel(); } catch { /* ignore */ }
+                try { cts.Cancel(); } catch { }
                 cts.Dispose();
             }
         }

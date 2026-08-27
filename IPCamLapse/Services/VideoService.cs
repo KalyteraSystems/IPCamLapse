@@ -18,21 +18,14 @@ public class VideoService : IVideoService
         _logger = logger;
     }
 
-    /// <summary>
-    /// Returns the folder containing the ffmpeg binary, checking the application's
-    /// executable directory first so users can drop ffmpeg(.exe) alongside the app.
-    /// Falls back to common system locations on Linux/macOS.
-    /// </summary>
     private static string? FindFfmpegBinaryFolder()
     {
         var ffmpegExe = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
 
-        // 1. Same folder as the running executable (user-supplied binary)
         var appDir = AppContext.BaseDirectory;
         if (File.Exists(Path.Combine(appDir, ffmpegExe)))
             return appDir;
 
-        // 2. Common system-wide install locations
         foreach (var dir in new[] { "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin" })
         {
             if (File.Exists(Path.Combine(dir, ffmpegExe)))
@@ -102,7 +95,7 @@ public class VideoService : IVideoService
 
                 if (success && File.Exists(outputPath))
                 {
-                    _logger.LogInformation("Timelapse created successfully: {OutputPath}", outputPath);
+                    _logger.LogInformation("Created timelapse {OutputPath}", outputPath);
                     return outputPath;
                 }
 

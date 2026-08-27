@@ -22,7 +22,7 @@ public sealed class LocalOnlyAccessMiddleware
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             await context.Response.WriteAsJsonAsync(new
             {
-                error = "IPCamLapse accepts loopback connections only. Use an authenticated reverse proxy for remote access."
+                error = "Loopback access only."
             });
             return;
         }

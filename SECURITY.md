@@ -2,9 +2,9 @@
 
 ## Reporting a vulnerability
 
-Please do not disclose a suspected vulnerability in a public issue.
+Do not disclose suspected vulnerabilities in public issues.
 
-Use GitHub's **Report a vulnerability** option on the repository's Security tab to open a private security advisory. Include the affected version or commit, reproduction steps, impact, and any suggested mitigation. Maintainers will acknowledge a complete report as soon as practical and coordinate disclosure after a fix is available.
+Use **Report a vulnerability** on the Security tab. Include the affected version or commit, reproduction steps, impact, and suggested mitigation. Maintainers will coordinate disclosure after a fix is available.
 
 ## Supported versions
 

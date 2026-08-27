@@ -1,11 +1,9 @@
 # Contributing to IPCamLapse
 
-Thank you for helping make IPCamLapse more useful and safer.
-
 ## Before you start
 
 - Search existing issues before opening a new one.
-- Use a discussion or issue for substantial design changes before investing in an implementation.
+- Open an issue before making a substantial design change.
 - Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 - Keep pull requests focused. Separate unrelated refactors from behavior changes.
 
@@ -30,7 +28,7 @@ dotnet list package --vulnerable --include-transitive
 
 ## Pull requests
 
-- Explain the user-visible problem and the approach taken.
+- Explain the problem and the change.
 - Add or update tests for behavior changes.
 - Update documentation when configuration, security assumptions, or workflows change.
 - Do not commit camera credentials, captured frames, videos, Data Protection keys, or other private data.
