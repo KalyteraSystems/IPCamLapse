@@ -150,7 +150,7 @@ else
             const btn = event.target.closest('button');
             btn.disabled = true;
             try {
-                const r = await fetch(`/api/sessions/${id}/start`, { method: 'POST' });
+                const r = await window.ipCamLapseFetch(`/api/sessions/${id}/start`, { method: 'POST' });
                 if (r.ok) location.reload();
                 else { const err = await r.json(); alert(err.message || 'Failed to start session'); }
             } catch { alert('Error starting session'); }
@@ -161,7 +161,7 @@ else
             const btn = event.target.closest('button');
             btn.disabled = true;
             try {
-                const r = await fetch(`/api/sessions/${id}/stop`, { method: 'POST' });
+                const r = await window.ipCamLapseFetch(`/api/sessions/${id}/stop`, { method: 'POST' });
                 if (r.ok) location.reload();
             } finally { btn.disabled = false; }
         }

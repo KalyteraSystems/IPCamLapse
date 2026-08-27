@@ -137,6 +137,7 @@ public class CaptureBackgroundService : BackgroundService
                 session.Configuration.CameraUrl,
                 session.Configuration.Username,
                 session.Configuration.Password,
+                session.Configuration.AllowInvalidCertificate,
                 cancellationToken);
 
             if (imageData == null)

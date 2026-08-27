@@ -1,4 +1,11 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+window.ipCamLapseFetch = function (input, init = {}) {
+    const method = (init.method || 'GET').toUpperCase();
+    const headers = new Headers(init.headers || {});
 
-// Write your JavaScript code.
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (token) headers.set('X-CSRF-TOKEN', token);
+    }
+
+    return fetch(input, { ...init, headers });
+};

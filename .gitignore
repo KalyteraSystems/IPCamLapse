@@ -25,6 +25,10 @@ launchSettings.json
 # Build results
 [Dd]ebug/
 [Rr]elease/
+TestResults/
+coverage/
+*.coverage
+*.trx
 x64/
 build/
 bld/

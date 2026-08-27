@@ -8,10 +8,12 @@ namespace IPCamLapse.Pages.Sessions;
 public class CreateModel : PageModel
 {
     private readonly ICaptureSessionService _sessionService;
+    private readonly ICameraUrlPolicy _cameraUrlPolicy;
 
-    public CreateModel(ICaptureSessionService sessionService)
+    public CreateModel(ICaptureSessionService sessionService, ICameraUrlPolicy cameraUrlPolicy)
     {
         _sessionService = sessionService;
+        _cameraUrlPolicy = cameraUrlPolicy;
     }
 
     [BindProperty]
@@ -34,9 +36,14 @@ public class CreateModel : PageModel
             return Page();
         }
 
-        if (string.IsNullOrWhiteSpace(Session.Configuration.CameraUrl))
+        var urlValidation = await _cameraUrlPolicy.ValidateAsync(
+            Session.Configuration.CameraUrl,
+            HttpContext.RequestAborted);
+        if (!urlValidation.IsValid)
         {
-            ModelState.AddModelError("Session.Configuration.CameraUrl", "Camera URL is required");
+            ModelState.AddModelError(
+                "Session.Configuration.CameraUrl",
+                urlValidation.Error ?? "Camera URL is not allowed.");
             Presets = TimeLapsePreset.GetPresets();
             return Page();
         }
@@ -48,6 +55,11 @@ public class CreateModel : PageModel
             return Page();
         }
 
+        Session.Name = Session.Name.Trim();
+        Session.Configuration.CameraUrl = urlValidation.Uri!.AbsoluteUri;
+        Session.Configuration.Username = string.IsNullOrWhiteSpace(Session.Configuration.Username)
+            ? null
+            : Session.Configuration.Username.Trim();
         Session.Id = Guid.NewGuid().ToString("N")[..8];
         Session.CreatedAt = DateTime.UtcNow;
         Session.Status = SessionStatus.Created;

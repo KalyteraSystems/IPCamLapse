@@ -93,6 +93,15 @@
                             </div>
                         </div>
                     </div>
+                    <div class="form-check mb-4">
+                        <input asp-for="Session.Configuration.AllowInvalidCertificate" class="form-check-input" />
+                        <label asp-for="Session.Configuration.AllowInvalidCertificate" class="form-check-label">
+                            Allow an invalid HTTPS certificate for this camera
+                        </label>
+                        <div class="form-text">
+                            Enable only for a trusted camera on your private network. Certificate validation remains on by default.
+                        </div>
+                    </div>
 
                     <hr />
 
@@ -267,6 +276,7 @@
             const url = document.querySelector('[name="Session.Configuration.CameraUrl"]').value;
             const username = document.querySelector('[name="Session.Configuration.Username"]').value;
             const password = document.querySelector('[name="Session.Configuration.Password"]').value;
+            const allowInvalidCertificate = document.querySelector('[name="Session.Configuration.AllowInvalidCertificate"]').checked;
             if (!url) { alert('Please enter a camera URL first'); return; }
 
             const resultDiv = document.getElementById('camera-test-result');
@@ -274,10 +284,11 @@
             resultDiv.textContent = 'Testing connection...';
 
             try {
-                let testUrl = `/api/camera/test?url=${encodeURIComponent(url)}`;
-                if (username) testUrl += `&username=${encodeURIComponent(username)}`;
-                if (password) testUrl += `&password=${encodeURIComponent(password)}`;
-                const r = await fetch(testUrl);
+                const r = await window.ipCamLapseFetch('/api/camera/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, username, password, allowInvalidCertificate })
+                });
                 if (r.ok) {
                     resultDiv.className = 'mt-2 alert alert-success';
                     resultDiv.innerHTML = '<i class="bi bi-check-circle me-1"></i>Camera connected successfully!';
@@ -296,13 +307,15 @@
             const url = document.querySelector('[name="Session.Configuration.CameraUrl"]').value;
             const username = document.querySelector('[name="Session.Configuration.Username"]').value;
             const password = document.querySelector('[name="Session.Configuration.Password"]').value;
+            const allowInvalidCertificate = document.querySelector('[name="Session.Configuration.AllowInvalidCertificate"]').checked;
             if (!url) return;
 
             try {
-                let fetchUrl = `/api/camera/snapshot?url=${encodeURIComponent(url)}`;
-                if (username) fetchUrl += `&username=${encodeURIComponent(username)}`;
-                if (password) fetchUrl += `&password=${encodeURIComponent(password)}`;
-                const r = await fetch(fetchUrl);
+                const r = await window.ipCamLapseFetch('/api/camera/snapshot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, username, password, allowInvalidCertificate })
+                });
                 if (r.ok) {
                     const blob = await r.blob();
                     const imgUrl = URL.createObjectURL(blob);

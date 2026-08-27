@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace IPCamLapse.Models;
@@ -14,18 +15,27 @@ public enum SessionStatus
 
 public class CaptureConfiguration
 {
+    [Required, StringLength(2048)]
     public string CameraUrl { get; set; } = string.Empty;
+    [StringLength(128)]
     public string? Username { get; set; }
+    [StringLength(512)]
     public string? Password { get; set; }
+    public bool AllowInvalidCertificate { get; set; }
+    [Range(5, 86400)]
     public int CaptureIntervalSeconds { get; set; } = 300;
+    [Range(60, 31536000)]
     public long CaptureDurationSeconds { get; set; } = 86400;
+    [Range(1, 600)]
     public double VideoTargetDurationSeconds { get; set; } = 30;
+    [StringLength(100)]
     public string PresetName { get; set; } = "Custom";
 }
 
 public class CaptureSession
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    [Required, StringLength(100)]
     public string Name { get; set; } = string.Empty;
     public CaptureConfiguration Configuration { get; set; } = new();
     public SessionStatus Status { get; set; } = SessionStatus.Created;

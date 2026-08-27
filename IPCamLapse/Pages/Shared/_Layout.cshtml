@@ -1,8 +1,13 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var antiforgeryTokens = Antiforgery.GetAndStoreTokens(Context);
+}
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="@antiforgeryTokens.RequestToken" />
     <title>@ViewData["Title"] - IPCamLapse</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" asp-append-version="true" />
@@ -37,14 +42,19 @@
         <div class="sidebar-section-title">About</div>
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="nav-link" href="https://github.com" target="_blank">
+                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Privacy" ? "active" : "")" asp-page="/Privacy">
+                    <i class="bi bi-shield-lock me-2"></i>Privacy
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="https://github.com/KalyteraSystems/IPCamLapse" target="_blank" rel="noopener noreferrer">
                     <i class="bi bi-github me-2"></i>GitHub
                 </a>
             </li>
         </ul>
     </div>
     <div class="sidebar-footer">
-        <small class="text-muted"><i class="bi bi-camera-video me-1"></i>IPCamLapse v1.0</small>
+        <small class="text-muted"><i class="bi bi-camera-video me-1"></i>IPCamLapse v0.1.0</small>
     </div>
 </nav>
 
@@ -87,6 +97,7 @@
 </div>
 
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
 
 <script>
     function toggleSidebar() {
