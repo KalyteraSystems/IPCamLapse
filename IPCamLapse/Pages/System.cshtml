@@ -1,0 +1,38 @@
+@page
+@model IPCamLapse.Pages.SystemModel
+@{
+    ViewData["Title"] = "System check";
+}
+
+<div class="mb-4">
+    <h1 class="h2 mb-1">System check</h1>
+    <p class="text-muted mb-0">IPCamLapse checks these requirements on first run and whenever this page opens.</p>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+            @foreach (var check in Model.Health.Checks)
+            {
+                <div class="list-group-item p-4 d-flex align-items-start gap-3">
+                    <span class="health-icon @(check.Healthy ? "healthy" : "unhealthy")">
+                        <i class="bi @(check.Healthy ? "bi-check-lg" : "bi-exclamation-lg")"></i>
+                    </span>
+                    <div>
+                        <h2 class="h6 mb-1">@check.Name</h2>
+                        <p class="small text-muted text-break mb-0">@check.Detail</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (!Model.Health.Healthy)
+{
+    <div class="alert alert-warning">
+        <strong>Capture may be limited.</strong> Camera frames can still be collected without FFmpeg, but a video cannot be rendered until FFmpeg is available.
+    </div>
+}
+
+<a asp-page="/Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Run again</a>

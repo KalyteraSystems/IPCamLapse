@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+            extension: zip
+          - rid: linux-x64
+            os: ubuntu-latest
+            extension: tar.gz
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore locked dependencies
+        run: dotnet restore --locked-mode
+
+      - name: Test
+        run: dotnet test --configuration Release --no-restore
+
+      - name: Publish self-contained app
+        shell: pwsh
+        run: >-
+          dotnet publish IPCamLapse/IPCamLapse.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --no-restore
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          --output publish/${{ matrix.rid }}
+
+      - name: Create archive
+        shell: pwsh
+        run: |
+          $archive = "IPCamLapse-${{ github.ref_name }}-${{ matrix.rid }}.${{ matrix.extension }}"
+          if ("${{ matrix.rid }}" -eq "win-x64") {
+            Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath $archive
+          } else {
+            tar -C "publish/${{ matrix.rid }}" -czf $archive .
+          }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: IPCamLapse-${{ matrix.rid }}
+          path: IPCamLapse-${{ github.ref_name }}-${{ matrix.rid }}.${{ matrix.extension }}
+          if-no-files-found: error
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" artifacts/* --verify-tag --generate-notes

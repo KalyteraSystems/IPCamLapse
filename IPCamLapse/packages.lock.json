@@ -16,6 +16,8 @@
         "resolved": "3.0.0",
         "contentHash": "wlZ0V+S7X7kMKbjC7EZJf5A1FNlldQrS0tKMNXP1Ued/6XCo6t5kpFDS3X72cd+SGaX+q+FOlWO7r18GlxcKAQ=="
       }
-    }
+    },
+    "net10.0/linux-x64": {},
+    "net10.0/win-x64": {}
   }
 }

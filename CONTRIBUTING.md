@@ -9,7 +9,7 @@
 
 ## Local setup
 
-Install the .NET 10 SDK. FFmpeg is required for manual video-generation testing but not for the current unit suite.
+Install the .NET 10 SDK. FFmpeg is required for manual video-generation testing; the automated integration suite replaces the encoder at its service boundary.
 
 ```console
 git clone https://github.com/KalyteraSystems/IPCamLapse.git
@@ -18,6 +18,8 @@ dotnet restore
 dotnet build --configuration Release --no-restore
 dotnet test --configuration Release --no-build
 ```
+
+The demo camera is the fastest way to exercise capture behavior locally. Component boundaries, state transitions, and the data layout are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Before opening a pull request, run:
 

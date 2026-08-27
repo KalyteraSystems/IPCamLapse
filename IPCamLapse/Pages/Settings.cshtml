@@ -1,0 +1,111 @@
+@page
+@model IPCamLapse.Pages.SettingsModel
+@{
+    ViewData["Title"] = "Storage";
+    var storagePercent = Model.Storage.MaxBytes > 0
+        ? Math.Clamp(Model.Storage.UsedBytes * 100d / Model.Storage.MaxBytes, 0, 100)
+        : 0;
+}
+
+<div class="mb-4">
+    <h1 class="h2 mb-1">Storage</h1>
+    <p class="text-muted mb-0">Set a budget, disk reserve, and automatic retention period.</p>
+</div>
+
+@if (TempData["Saved"] is true)
+{
+    <div class="alert alert-success">Storage settings saved.</div>
+}
+@if (TempData["RetentionResult"] is int removed)
+{
+    <div class="alert alert-info">Removed @removed expired @(removed == 1 ? "session" : "sessions").</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <form method="post" class="card shadow-sm">
+            <div class="card-body p-4">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="MaxStorageGb" class="form-label fw-semibold">Storage limit</label>
+                        <div class="input-group">
+                            <input asp-for="MaxStorageGb" type="number" step="0.1" class="form-control" />
+                            <span class="input-group-text">GB</span>
+                        </div>
+                        <span asp-validation-for="MaxStorageGb" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="MinimumFreeGb" class="form-label fw-semibold">Keep free</label>
+                        <div class="input-group">
+                            <input asp-for="MinimumFreeGb" type="number" step="0.05" class="form-control" />
+                            <span class="input-group-text">GB</span>
+                        </div>
+                        <span asp-validation-for="MinimumFreeGb" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="RetentionDays" class="form-label fw-semibold">Delete finished sessions after</label>
+                        <div class="input-group">
+                            <input asp-for="RetentionDays" type="number" class="form-control" />
+                            <span class="input-group-text">days</span>
+                        </div>
+                        <div class="form-text">0 keeps sessions until you delete them.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="EstimatedFrameKb" class="form-label fw-semibold">Typical frame size</label>
+                        <div class="input-group">
+                            <input asp-for="EstimatedFrameKb" type="number" class="form-control" />
+                            <span class="input-group-text">KB</span>
+                        </div>
+                        <div class="form-text">Used for estimates before a session starts.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent p-4">
+                <button type="submit" class="btn btn-primary">Save settings</button>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <strong>Current use</strong>
+                    <span>@FormatBytes(Model.Storage.UsedBytes) / @FormatBytes(Model.Storage.MaxBytes)</span>
+                </div>
+                <div class="progress mb-3" style="height: 10px;">
+                    <div class="progress-bar @(Model.Storage.IsLow ? "bg-danger" : "")" style="width: @storagePercent.ToString("F1")%"></div>
+                </div>
+                <dl class="row small mb-0">
+                    <dt class="col-7 text-muted fw-normal">Drive space available</dt>
+                    <dd class="col-5 text-end">@FormatBytes(Model.Storage.AvailableDriveBytes)</dd>
+                    <dt class="col-7 text-muted fw-normal">Reserved</dt>
+                    <dd class="col-5 text-end mb-0">@FormatBytes(Model.Storage.MinimumFreeBytes)</dd>
+                </dl>
+                @if (Model.Storage.Warning is not null)
+                {
+                    <div class="alert alert-warning small mt-3 mb-0">@Model.Storage.Warning</div>
+                }
+            </div>
+        </div>
+        <form method="post" asp-page-handler="RunRetention" class="card shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="h5">Retention cleanup</h2>
+                <p class="small text-muted">Remove finished sessions older than the current retention period now.</p>
+                <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Remove all expired sessions and their files?')">Run cleanup</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
+
+@functions {
+    string FormatBytes(long bytes)
+    {
+        if (bytes >= 1024L * 1024 * 1024) return $"{bytes / 1024d / 1024d / 1024d:F1} GB";
+        return $"{bytes / 1024d / 1024d:F1} MB";
+    }
+}

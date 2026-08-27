@@ -10,6 +10,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 builder.Services.AddDataProtection();
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services
     .AddOptions<CameraAccessOptions>()
@@ -21,23 +22,33 @@ builder.Services
 builder.Services.AddHttpClient("CameraStrict", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("IPCamLapse/0.1");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("IPCamLapse/0.2");
 })
-.ConfigurePrimaryHttpMessageHandler(() => CreateCameraHandler(allowInvalidCertificate: false));
+.ConfigurePrimaryHttpMessageHandler(() => CreateCameraHandler(false));
 
 builder.Services.AddHttpClient("CameraInsecure", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("IPCamLapse/0.1");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("IPCamLapse/0.2");
 })
-.ConfigurePrimaryHttpMessageHandler(() => CreateCameraHandler(allowInvalidCertificate: true));
+.ConfigurePrimaryHttpMessageHandler(() => CreateCameraHandler(true));
 
+builder.Services.AddSingleton<IDataPathProvider, DataPathProvider>();
+builder.Services.AddSingleton<IApplicationSettingsService, ApplicationSettingsService>();
 builder.Services.AddSingleton<ICameraUrlPolicy, CameraUrlPolicy>();
+builder.Services.AddSingleton<ICameraProfileService, CameraProfileService>();
 builder.Services.AddSingleton<ICaptureSessionService, CaptureSessionService>();
+builder.Services.AddSingleton<IDemoFrameGenerator, DemoFrameGenerator>();
 builder.Services.AddSingleton<ICameraService, CameraService>();
+builder.Services.AddSingleton<IFrameCatalogService, FrameCatalogService>();
+builder.Services.AddSingleton<ICaptureScheduleService, CaptureScheduleService>();
+builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IVideoService, VideoService>();
+builder.Services.AddSingleton<ISystemHealthService, SystemHealthService>();
 builder.Services.AddSingleton<CaptureBackgroundService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<CaptureBackgroundService>());
+builder.Services.AddHostedService(serviceProvider =>
+    serviceProvider.GetRequiredService<CaptureBackgroundService>());
+builder.Services.AddHostedService<StorageMaintenanceService>();
 
 var app = builder.Build();
 
@@ -56,49 +67,87 @@ app.MapHub<ProgressHub>("/progressHub");
 
 app.MapGet("/api/sessions/{id}/video", async (
     string id,
-    ICaptureSessionService sessionService) =>
+    ICaptureSessionService sessions) =>
 {
-    var session = await sessionService.GetSessionAsync(id);
-    if (session == null) return Results.NotFound();
-
+    var session = await sessions.GetSessionAsync(id);
+    if (session is null)
+        return Results.NotFound();
     var videoPath = session.VideoPath ?? (session.HasPartialVideo && session.StoragePath is not null
         ? Path.Combine(session.StoragePath, "partial_timelapse.mp4")
         : null);
-
-    if (videoPath == null || !File.Exists(videoPath))
-        return Results.NotFound("Video not yet available");
-
-    var fileStream = new FileStream(videoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-    return Results.File(fileStream, "video/mp4", Path.GetFileName(videoPath), enableRangeProcessing: true);
+    if (videoPath is null || !File.Exists(videoPath))
+        return Results.NotFound(new { message = "Video is not available." });
+    var stream = new FileStream(videoPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+    return Results.File(stream, "video/mp4", Path.GetFileName(videoPath), enableRangeProcessing: true);
 });
 
 app.MapGet("/api/sessions/{id}/preview", async (
     string id,
-    ICaptureSessionService sessionService) =>
+    ICaptureSessionService sessions) =>
 {
-    var latest = await sessionService.GetLatestImageAsync(id);
-    if (latest == null || !File.Exists(latest))
+    var latest = await sessions.GetLatestImageAsync(id);
+    if (latest is null || !File.Exists(latest))
         return Results.NotFound();
+    return Results.File(latest, GetImageContentType(latest));
+});
 
-    return Results.File(latest, "image/jpeg", enableRangeProcessing: false);
+app.MapGet("/api/sessions/{id}/frames", async (
+    string id,
+    int? offset,
+    int? limit,
+    IFrameCatalogService frames) =>
+{
+    return Results.Ok(await frames.GetFramesAsync(id, offset ?? 0, limit ?? 24));
+});
+
+app.MapGet("/api/sessions/{id}/frames/{fileName}", async (
+    string id,
+    string fileName,
+    bool? download,
+    IFrameCatalogService frames) =>
+{
+    var path = await frames.ResolveFramePathAsync(id, fileName);
+    if (path is null)
+        return Results.NotFound();
+    return Results.File(
+        path,
+        GetImageContentType(path),
+        download == true ? fileName : null,
+        enableRangeProcessing: false);
+});
+
+app.MapGet("/api/sessions/{id}/events", async (
+    string id,
+    int? limit,
+    IFrameCatalogService frames) =>
+{
+    return Results.Ok(await frames.GetEventsAsync(id, limit ?? 50));
 });
 
 app.MapGet("/api/sessions/{id}/status", async (
     string id,
-    ICaptureSessionService sessionService,
-    CaptureBackgroundService captureService) =>
+    ICaptureSessionService sessions,
+    CaptureBackgroundService captureService,
+    TimeProvider timeProvider) =>
 {
-    var session = await sessionService.GetSessionAsync(id);
-    if (session == null) return Results.NotFound();
-
-    return Results.Json(new
+    var session = await sessions.GetSessionAsync(id);
+    if (session is null)
+        return Results.NotFound();
+    var now = timeProvider.GetUtcNow().UtcDateTime;
+    return Results.Ok(new
     {
         id = session.Id,
         status = session.Status.ToString(),
         capturedFrameCount = session.CapturedFrameCount,
-        progressPercent = session.ProgressPercent,
+        progressPercent = session.GetProgressPercent(now),
+        activeCaptureSeconds = session.GetActiveCaptureSeconds(now),
+        remainingSeconds = session.GetRemainingTime(now)?.TotalSeconds,
         lastCaptureAt = session.LastCaptureAt,
-        remainingSeconds = session.RemainingTime?.TotalSeconds,
+        nextCaptureAt = session.NextCaptureAt,
+        scheduledFor = session.ScheduledFor,
+        consecutiveFailures = session.ConsecutiveCaptureFailures,
+        totalFailures = session.TotalCaptureFailures,
+        lastError = session.LastCaptureError ?? session.ErrorMessage,
         hasVideo = !string.IsNullOrEmpty(session.VideoPath) && File.Exists(session.VideoPath),
         hasPartialVideo = session.HasPartialVideo &&
             File.Exists(Path.Combine(session.StoragePath ?? string.Empty, "partial_timelapse.mp4")),
@@ -108,93 +157,131 @@ app.MapGet("/api/sessions/{id}/status", async (
 
 app.MapPost("/api/sessions/{id}/start", async (
     string id,
-    ICaptureSessionService sessionService,
     CaptureBackgroundService captureService) =>
 {
-    var session = await sessionService.GetSessionAsync(id);
-    if (session == null) return Results.NotFound();
-    if (session.Status == SessionStatus.Running)
-        return Results.BadRequest(new { message = "Session is already running" });
+    var result = await captureService.StartSessionAsync(id);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
+});
 
-    await captureService.StartSessionAsync(id);
-    return Results.Ok(new { message = "Session started" });
+app.MapPost("/api/sessions/{id}/pause", async (
+    string id,
+    CaptureBackgroundService captureService) =>
+{
+    var result = await captureService.PauseSessionAsync(id);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
 });
 
 app.MapPost("/api/sessions/{id}/stop", async (
     string id,
     CaptureBackgroundService captureService) =>
 {
-    await captureService.StopSessionAsync(id);
-    return Results.Ok(new { message = "Session paused" });
+    var result = await captureService.PauseSessionAsync(id);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
 });
 
 app.MapPost("/api/sessions/{id}/cancel", async (
     string id,
     CaptureBackgroundService captureService) =>
 {
-    await captureService.CancelSessionAsync(id);
-    return Results.Ok(new { message = "Session cancelled" });
+    var result = await captureService.CancelSessionAsync(id);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
+});
+
+app.MapPost("/api/sessions/{id}/render-preview", async (
+    string id,
+    VideoRenderCommand command,
+    CaptureBackgroundService captureService,
+    CancellationToken cancellationToken) =>
+{
+    var result = await captureService.RenderPreviewVideoAsync(
+        id,
+        command.StartFrame,
+        command.EndFrame,
+        cancellationToken);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
 });
 
 app.MapPost("/api/sessions/{id}/generate-partial-video", async (
     string id,
-    ICaptureSessionService sessionService,
-    CaptureBackgroundService captureService) =>
+    CaptureBackgroundService captureService,
+    CancellationToken cancellationToken) =>
 {
-    var session = await sessionService.GetSessionAsync(id);
-    if (session == null) return Results.NotFound();
-    if (session.CapturedFrameCount < 2)
-        return Results.BadRequest(new { message = "Not enough frames captured yet" });
+    var result = await captureService.RenderPreviewVideoAsync(id, cancellationToken: cancellationToken);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
+});
 
-    var videoPath = await captureService.GeneratePartialVideoAsync(id);
-    if (videoPath == null)
-        return Results.Problem("Failed to generate video");
-
-    session.HasPartialVideo = true;
-    await sessionService.UpdateSessionAsync(session);
-    return Results.Ok(new { message = "Partial video generated", videoPath = Path.GetFileName(videoPath) });
+app.MapPost("/api/sessions/{id}/render", async (
+    string id,
+    VideoRenderCommand command,
+    CaptureBackgroundService captureService,
+    CancellationToken cancellationToken) =>
+{
+    var result = await captureService.RenderVideoAsync(
+        id,
+        command.StartFrame,
+        command.EndFrame,
+        command.Settings ?? new VideoSettings(),
+        cancellationToken);
+    return result.Success ? Results.Ok() : Results.BadRequest(new { message = result.Error });
 });
 
 app.MapDelete("/api/sessions/{id}", async (
     string id,
-    ICaptureSessionService sessionService,
+    ICaptureSessionService sessions,
     CaptureBackgroundService captureService) =>
 {
+    if (await sessions.GetSessionAsync(id) is null)
+        return Results.NotFound();
     await captureService.CancelSessionAsync(id);
-    await sessionService.DeleteSessionAsync(id);
-    return Results.Ok(new { message = "Session deleted" });
+    await sessions.DeleteSessionAsync(id);
+    return Results.Ok();
 });
 
 app.MapPost("/api/camera/test", async (
     CameraConnectionRequest request,
-    ICameraService cameraService,
+    ICameraProfileService profiles,
+    ICameraService camera,
     CancellationToken cancellationToken) =>
 {
-    var data = await cameraService.CaptureSnapshotAsync(
-        request.Url,
-        request.Username,
-        request.Password,
-        request.AllowInvalidCertificate,
-        cancellationToken);
-
-    return data != null
-        ? Results.Ok(new { success = true })
-        : Results.BadRequest(new { success = false });
+    var endpoint = await profiles.ResolveAsync(request);
+    if (endpoint is null)
+        return Results.NotFound(new { message = "Camera profile not found." });
+    var result = await camera.CaptureSnapshotAsync(endpoint, cancellationToken);
+    return result.Success
+        ? Results.Ok(new { durationMs = result.Duration.TotalMilliseconds, contentType = result.ContentType })
+        : Results.BadRequest(new
+        {
+            message = result.Error,
+            statusCode = result.StatusCode is null ? (int?)null : (int)result.StatusCode,
+            durationMs = result.Duration.TotalMilliseconds
+        });
 });
 
 app.MapPost("/api/camera/snapshot", async (
     CameraConnectionRequest request,
-    ICameraService cameraService,
+    ICameraProfileService profiles,
+    ICameraService camera,
     CancellationToken cancellationToken) =>
 {
-    var data = await cameraService.CaptureSnapshotAsync(
-        request.Url,
-        request.Username,
-        request.Password,
-        request.AllowInvalidCertificate,
-        cancellationToken);
+    var endpoint = await profiles.ResolveAsync(request);
+    if (endpoint is null)
+        return Results.NotFound();
+    var result = await camera.CaptureSnapshotAsync(endpoint, cancellationToken);
+    return result.Success && result.Data is not null
+        ? Results.File(result.Data, result.ContentType)
+        : Results.BadRequest(new { message = result.Error });
+});
 
-    return data == null ? Results.NotFound() : Results.File(data, "image/jpeg");
+app.MapGet("/api/system/health", async (
+    ISystemHealthService health,
+    CancellationToken cancellationToken) =>
+{
+    return Results.Ok(await health.CheckAsync(cancellationToken));
+});
+
+app.MapGet("/api/system/storage", async (IStorageService storage) =>
+{
+    return Results.Ok(await storage.GetStatusAsync());
 });
 
 app.Run();
@@ -209,6 +296,13 @@ static HttpMessageHandler CreateCameraHandler(bool allowInvalidCertificate)
             ? HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
             : null
     };
+}
+
+static string GetImageContentType(string path)
+{
+    return Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase)
+        ? "image/png"
+        : "image/jpeg";
 }
 
 public partial class Program;

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using IPCamLapse.Models;
 using Microsoft.AspNetCore.DataProtection;
 
@@ -18,7 +18,7 @@ public interface ICaptureSessionService
     Task<string?> GetLatestImageAsync(string id);
 }
 
-public class CaptureSessionService : ICaptureSessionService
+public sealed class CaptureSessionService : ICaptureSessionService
 {
     private const string ProtectedSecretPrefix = "dp:v1:";
     private static readonly StringComparison PathComparison = OperatingSystem.IsWindows()
@@ -34,62 +34,15 @@ public class CaptureSessionService : ICaptureSessionService
 
     public CaptureSessionService(
         ILogger<CaptureSessionService> logger,
-        IWebHostEnvironment env,
+        IDataPathProvider paths,
         IDataProtectionProvider dataProtectionProvider)
     {
         _logger = logger;
         _credentialProtector = dataProtectionProvider.CreateProtector("IPCamLapse.SessionCredentials.v1");
-        _baseStoragePath = Path.GetFullPath(Path.Combine(env.ContentRootPath, "data", "sessions"));
+        _baseStoragePath = Path.GetFullPath(paths.SessionsPath);
         _baseStoragePrefix = _baseStoragePath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         Directory.CreateDirectory(_baseStoragePath);
         LoadSessionsFromDisk();
-    }
-
-    private void LoadSessionsFromDisk()
-    {
-        try
-        {
-            var sessionFiles = Directory.GetFiles(_baseStoragePath, "*.json");
-            foreach (var file in sessionFiles)
-            {
-                try
-                {
-                    var json = File.ReadAllText(file);
-                    var session = JsonSerializer.Deserialize<CaptureSession>(json);
-                    var fileId = Path.GetFileNameWithoutExtension(file);
-                    if (session != null && IsValidSessionId(session.Id) &&
-                        string.Equals(session.Id, fileId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        var usedLegacyPlaintext = RestoreCredential(session);
-                        session.StoragePath = GetSessionDirectory(session.Id);
-                        session.LastFramePath = GetContainedExistingFileOrNull(session.LastFramePath, session.StoragePath);
-                        session.VideoPath = GetContainedExistingFileOrNull(session.VideoPath, session.StoragePath);
-                        if (session.Status == SessionStatus.Running)
-                            session.Status = SessionStatus.Paused;
-                        _sessions[session.Id] = session;
-
-                        if (usedLegacyPlaintext)
-                        {
-                            File.WriteAllText(file, SerializeForPersistence(session));
-                            _logger.LogInformation("Migrated stored credentials for session {Id} to protected form", session.Id);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Ignored invalid session file {File}", Path.GetFileName(file));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to load session from {File}", file);
-                }
-            }
-            _logger.LogInformation("Loaded {Count} sessions from disk", _sessions.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load sessions from disk");
-        }
     }
 
     public async Task<CaptureSession> CreateSessionAsync(CaptureSession session)
@@ -97,8 +50,8 @@ public class CaptureSessionService : ICaptureSessionService
         EnsureValidSessionId(session.Id);
         session.StoragePath = GetSessionDirectory(session.Id);
         Directory.CreateDirectory(session.StoragePath);
-
-        _sessions[session.Id] = session;
+        if (!_sessions.TryAdd(session.Id, session))
+            throw new InvalidOperationException("A session with this identifier already exists.");
         await PersistSessionAsync(session);
         return session;
     }
@@ -111,8 +64,7 @@ public class CaptureSessionService : ICaptureSessionService
 
     public Task<List<CaptureSession>> GetAllSessionsAsync()
     {
-        var sessions = _sessions.Values.OrderByDescending(s => s.CreatedAt).ToList();
-        return Task.FromResult(sessions);
+        return Task.FromResult(_sessions.Values.OrderByDescending(session => session.CreatedAt).ToList());
     }
 
     public async Task UpdateSessionAsync(CaptureSession session)
@@ -123,24 +75,27 @@ public class CaptureSessionService : ICaptureSessionService
         await PersistSessionAsync(session);
     }
 
-    public async Task DeleteSessionAsync(string id)
+    public Task DeleteSessionAsync(string id)
     {
-        if (!IsValidSessionId(id))
-            return;
+        if (!IsValidSessionId(id) || !_sessions.TryRemove(id, out _))
+            return Task.CompletedTask;
 
-        if (_sessions.TryRemove(id, out _))
+        var jsonPath = Path.Combine(_baseStoragePath, $"{id}.json");
+        if (File.Exists(jsonPath))
+            File.Delete(jsonPath);
+        var sessionDirectory = GetSessionDirectory(id);
+        if (Directory.Exists(sessionDirectory))
         {
-            var jsonPath = Path.Combine(_baseStoragePath, $"{id}.json");
-            if (File.Exists(jsonPath)) File.Delete(jsonPath);
-
-            var sessionDirectory = GetSessionDirectory(id);
-            if (Directory.Exists(sessionDirectory))
+            try
             {
-                try { Directory.Delete(sessionDirectory, true); }
-                catch (Exception ex) { _logger.LogError(ex, "Failed to delete session storage"); }
+                Directory.Delete(sessionDirectory, true);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Failed to delete storage for session {SessionId}", id);
             }
         }
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     public Task<string> GetSessionStoragePathAsync(string id)
@@ -152,12 +107,16 @@ public class CaptureSessionService : ICaptureSessionService
 
     public Task<string[]> GetSessionImagesAsync(string id)
     {
-        if (_sessions.TryGetValue(id, out var session) && session.StoragePath != null)
+        if (_sessions.TryGetValue(id, out var session) && session.StoragePath is not null)
         {
             var imagesPath = Path.Combine(session.StoragePath, "images");
             if (Directory.Exists(imagesPath))
             {
-                var images = Directory.GetFiles(imagesPath, "*.jpg").OrderBy(f => f).ToArray();
+                var images = Directory
+                    .EnumerateFiles(imagesPath, "frame_*.*")
+                    .Where(path => Path.GetExtension(path) is ".jpg" or ".png")
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
                 return Task.FromResult(images);
             }
         }
@@ -166,26 +125,93 @@ public class CaptureSessionService : ICaptureSessionService
 
     public Task<string?> GetLatestImageAsync(string id)
     {
-        if (_sessions.TryGetValue(id, out var session))
-            return Task.FromResult(session.LastFramePath);
-        return Task.FromResult<string?>(null);
+        return Task.FromResult(_sessions.TryGetValue(id, out var session) ? session.LastFramePath : null);
+    }
+
+    private void LoadSessionsFromDisk()
+    {
+        try
+        {
+            foreach (var file in Directory.GetFiles(_baseStoragePath, "*.json"))
+                LoadSessionFile(file);
+            _logger.LogInformation("Loaded {Count} sessions", _sessions.Count);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to load sessions");
+        }
+    }
+
+    private void LoadSessionFile(string file)
+    {
+        try
+        {
+            var session = JsonSerializer.Deserialize<CaptureSession>(File.ReadAllText(file));
+            var fileId = Path.GetFileNameWithoutExtension(file);
+            if (session is null || !IsValidSessionId(session.Id) ||
+                !string.Equals(session.Id, fileId, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Ignored invalid session file {File}", Path.GetFileName(file));
+                return;
+            }
+
+            var usedLegacyPlaintext = RestoreCredential(session);
+            NormalizeLoadedSession(session);
+            _sessions[session.Id] = session;
+            if (usedLegacyPlaintext)
+                File.WriteAllText(file, SerializeForPersistence(session));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to load session from {File}", Path.GetFileName(file));
+        }
+    }
+
+    private void NormalizeLoadedSession(CaptureSession session)
+    {
+        session.Configuration ??= new CaptureConfiguration();
+        session.Configuration.Schedule ??= new CaptureSchedule();
+        session.Configuration.Video ??= new VideoSettings();
+        session.StoragePath = GetSessionDirectory(session.Id);
+        session.LastFramePath = GetContainedExistingFileOrNull(session.LastFramePath, session.StoragePath);
+        session.VideoPath = GetContainedExistingFileOrNull(session.VideoPath, session.StoragePath);
+
+        if (session.AccumulatedCaptureSeconds <= 0 && session.StartedAt.HasValue &&
+            session.Status is not SessionStatus.Ready)
+        {
+            var lastActiveAt = session.LastCaptureAt ?? session.PausedAt ?? DateTime.UtcNow;
+            session.AccumulatedCaptureSeconds = Math.Clamp(
+                (lastActiveAt - session.StartedAt.Value).TotalSeconds,
+                0,
+                session.Configuration.CaptureDurationSeconds);
+        }
+
+        if (session.Status is SessionStatus.Capturing or SessionStatus.Rendering)
+        {
+            session.Status = SessionStatus.Paused;
+            session.PausedAt = DateTime.UtcNow;
+        }
+        session.ActiveSegmentStartedAt = null;
     }
 
     private async Task PersistSessionAsync(CaptureSession session)
     {
         await _persistLock.WaitAsync();
+        var temporaryPath = Path.Combine(_baseStoragePath, $".{session.Id}.{Guid.NewGuid():N}.tmp");
         try
         {
             var jsonPath = Path.Combine(_baseStoragePath, $"{session.Id}.json");
-            var json = SerializeForPersistence(session);
-            await File.WriteAllTextAsync(jsonPath, json);
+            await File.WriteAllTextAsync(temporaryPath, SerializeForPersistence(session));
+            File.Move(temporaryPath, jsonPath, true);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            _logger.LogError(ex, "Failed to persist session {Id}", session.Id);
+            _logger.LogError(exception, "Failed to persist session {SessionId}", session.Id);
         }
         finally
         {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
             _persistLock.Release();
         }
     }
@@ -198,30 +224,29 @@ public class CaptureSessionService : ICaptureSessionService
             persistedSession.Configuration.Password = ProtectedSecretPrefix +
                 _credentialProtector.Protect(persistedSession.Configuration.Password);
         }
-
         return JsonSerializer.Serialize(persistedSession, new JsonSerializerOptions { WriteIndented = true });
     }
 
     private bool RestoreCredential(CaptureSession session)
     {
-        var storedPassword = session.Configuration.Password;
+        var configuration = session.Configuration;
+        if (configuration is null)
+            return false;
+        var storedPassword = configuration.Password;
         if (string.IsNullOrEmpty(storedPassword))
             return false;
-
         if (!storedPassword.StartsWith(ProtectedSecretPrefix, StringComparison.Ordinal))
             return true;
-
         try
         {
-            session.Configuration.Password = _credentialProtector.Unprotect(
+            configuration.Password = _credentialProtector.Unprotect(
                 storedPassword[ProtectedSecretPrefix.Length..]);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            session.Configuration.Password = null;
-            _logger.LogWarning(ex, "Could not unprotect credentials for session {Id}; credentials must be entered again", session.Id);
+            configuration.Password = null;
+            _logger.LogWarning(exception, "Could not read credentials for session {SessionId}", session.Id);
         }
-
         return false;
     }
 
@@ -230,7 +255,7 @@ public class CaptureSessionService : ICaptureSessionService
         EnsureValidSessionId(id);
         var path = Path.GetFullPath(Path.Combine(_baseStoragePath, id));
         if (!path.StartsWith(_baseStoragePrefix, PathComparison))
-            throw new InvalidOperationException("Session storage path escaped the configured data directory.");
+            throw new InvalidOperationException("Session storage path is invalid.");
         return path;
     }
 
@@ -238,7 +263,6 @@ public class CaptureSessionService : ICaptureSessionService
     {
         if (string.IsNullOrWhiteSpace(candidate))
             return null;
-
         var fullCandidate = Path.GetFullPath(candidate);
         var prefix = Path.GetFullPath(sessionDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         return fullCandidate.StartsWith(prefix, PathComparison) && File.Exists(fullCandidate)
@@ -262,6 +286,7 @@ public class CaptureSessionService : ICaptureSessionService
             Name = session.Name,
             Configuration = new CaptureConfiguration
             {
+                CameraProfileId = session.Configuration.CameraProfileId,
                 CameraUrl = session.Configuration.CameraUrl,
                 Username = session.Configuration.Username,
                 Password = session.Configuration.Password,
@@ -269,19 +294,50 @@ public class CaptureSessionService : ICaptureSessionService
                 CaptureIntervalSeconds = session.Configuration.CaptureIntervalSeconds,
                 CaptureDurationSeconds = session.Configuration.CaptureDurationSeconds,
                 VideoTargetDurationSeconds = session.Configuration.VideoTargetDurationSeconds,
-                PresetName = session.Configuration.PresetName
+                MaxCaptureRetries = session.Configuration.MaxCaptureRetries,
+                RetryBaseDelaySeconds = session.Configuration.RetryBaseDelaySeconds,
+                MaxConsecutiveFailures = session.Configuration.MaxConsecutiveFailures,
+                PresetName = session.Configuration.PresetName,
+                Schedule = new CaptureSchedule
+                {
+                    Frequency = session.Configuration.Schedule.Frequency,
+                    StartAtUtc = session.Configuration.Schedule.StartAtUtc,
+                    WindowStartLocal = session.Configuration.Schedule.WindowStartLocal,
+                    WindowEndLocal = session.Configuration.Schedule.WindowEndLocal,
+                    WeeklyDay = session.Configuration.Schedule.WeeklyDay
+                },
+                Video = new VideoSettings
+                {
+                    Width = session.Configuration.Video.Width,
+                    Height = session.Configuration.Video.Height,
+                    FitMode = session.Configuration.Video.FitMode,
+                    FrameRate = session.Configuration.Video.FrameRate,
+                    QualityCrf = session.Configuration.Video.QualityCrf,
+                    TimestampOverlay = session.Configuration.Video.TimestampOverlay
+                }
             },
             Status = session.Status,
             CreatedAt = session.CreatedAt,
             StartedAt = session.StartedAt,
+            ActiveSegmentStartedAt = session.ActiveSegmentStartedAt,
+            PausedAt = session.PausedAt,
             CompletedAt = session.CompletedAt,
+            NextCaptureAt = session.NextCaptureAt,
+            ScheduledFor = session.ScheduledFor,
+            AccumulatedCaptureSeconds = session.AccumulatedCaptureSeconds,
             CapturedFrameCount = session.CapturedFrameCount,
+            ConsecutiveCaptureFailures = session.ConsecutiveCaptureFailures,
+            TotalCaptureFailures = session.TotalCaptureFailures,
             StoragePath = session.StoragePath,
             ErrorMessage = session.ErrorMessage,
+            LastCaptureError = session.LastCaptureError,
+            LastCaptureAttemptAt = session.LastCaptureAttemptAt,
             LastCaptureAt = session.LastCaptureAt,
             LastFramePath = session.LastFramePath,
             VideoPath = session.VideoPath,
-            HasPartialVideo = session.HasPartialVideo
+            HasPartialVideo = session.HasPartialVideo,
+            RenderRangeStart = session.RenderRangeStart,
+            RenderRangeEnd = session.RenderRangeEnd
         };
     }
 }

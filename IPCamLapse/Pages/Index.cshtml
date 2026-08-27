@@ -1,7 +1,11 @@
 @page
 @model IndexModel
+@using IPCamLapse.Models
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = "Sessions";
+    var storagePercent = Model.Storage.MaxBytes > 0
+        ? Math.Clamp(Model.Storage.UsedBytes * 100d / Model.Storage.MaxBytes, 0, 100)
+        : 0;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -11,16 +15,37 @@
     </a>
 </div>
 
+@if (!Model.Health.Healthy)
+{
+    <div class="alert alert-warning d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-exclamation-triangle me-2"></i>System check needs attention.</span>
+        <a asp-page="/System" class="alert-link">Review</a>
+    </div>
+}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-3">
+        <div class="d-flex justify-content-between small mb-2">
+            <span>Storage</span>
+            <span>@FormatBytes(Model.Storage.UsedBytes) / @FormatBytes(Model.Storage.MaxBytes)</span>
+        </div>
+        <div class="progress" style="height: 8px;">
+            <div class="progress-bar @(Model.Storage.IsLow ? "bg-danger" : "")"
+                 style="width: @storagePercent.ToString("F1")%"
+                 role="progressbar"
+                 aria-valuenow="@storagePercent.ToString("F1")"
+                 aria-valuemin="0"
+                 aria-valuemax="100"></div>
+        </div>
+    </div>
+</div>
+
 @if (!Model.Sessions.Any())
 {
-    <div class="text-center py-5">
-        <div class="empty-state">
-            <i class="bi bi-camera-video display-1 text-muted"></i>
-            <h3 class="mt-3 text-muted">No sessions</h3>
-            <a asp-page="/Sessions/Create" class="btn btn-primary btn-lg mt-2">
-                <i class="bi bi-plus-circle me-2"></i>New session
-            </a>
-        </div>
+    <div class="text-center py-5 empty-state">
+        <i class="bi bi-camera-video display-1 text-muted"></i>
+        <h2 class="h4 mt-3 text-muted">No sessions</h2>
+        <a asp-page="/Sessions/Create" class="btn btn-primary mt-2">Try the demo camera</a>
     </div>
 }
 else
@@ -28,80 +53,79 @@ else
     <div class="row g-4" id="sessions-grid">
         @foreach (var session in Model.Sessions)
         {
+            var progress = session.GetProgressPercent(DateTime.UtcNow);
             <div class="col-xl-4 col-lg-6" id="session-card-@session.Id">
-                <div class="card h-100 shadow-sm session-card @GetStatusCardClass(session.Status)">
+                <article class="card h-100 shadow-sm session-card @GetStatusCardClass(session.Status)">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 fw-semibold text-truncate me-2">@session.Name</h6>
-                        <span class="badge @GetStatusBadgeClass(session.Status) flex-shrink-0">
-                            @if (session.Status == IPCamLapse.Models.SessionStatus.Running)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
-                            }
-                            @session.Status
-                        </span>
+                        <h2 class="h6 mb-0 text-truncate me-2">@session.Name</h2>
+                        <span class="badge @GetStatusBadgeClass(session.Status)" id="status-@session.Id">@session.Status</span>
                     </div>
                     <div class="card-body">
-                        @if (session.Status == IPCamLapse.Models.SessionStatus.Running || session.Status == IPCamLapse.Models.SessionStatus.Paused)
-                        {
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <small class="text-muted">Progress</small>
-                                    <small class="fw-semibold progress-text-@session.Id">@session.ProgressPercent.ToString("F1")%</small>
-                                </div>
-                                <div class="progress" style="height: 6px;">
-                                    <div class="progress-bar progress-bar-@session.Id @(session.Status == IPCamLapse.Models.SessionStatus.Running ? "progress-bar-animated progress-bar-striped" : "")"
-                                         style="width: @session.ProgressPercent.ToString("F1")%"></div>
-                                </div>
-                            </div>
-                        }
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <div class="stat-box text-center p-2 rounded bg-light">
-                                    <div class="fw-bold fs-5 frame-count-@session.Id">@session.CapturedFrameCount</div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Progress</span>
+                            <span class="progress-text-@session.Id">@progress.ToString("F1")%</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 7px;">
+                            <div class="progress-bar progress-bar-@session.Id @(session.Status == SessionStatus.Capturing ? "progress-bar-animated progress-bar-striped" : "")"
+                                 style="width: @progress.ToString("F1")%"
+                                 role="progressbar"
+                                 aria-valuenow="@progress.ToString("F1")"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100"></div>
+                        </div>
+
+                        <div class="row g-2 mb-3 text-center">
+                            <div class="col-4">
+                                <div class="stat-box rounded bg-light p-2">
+                                    <strong class="d-block frame-count-@session.Id">@session.CapturedFrameCount</strong>
                                     <small class="text-muted">Frames</small>
                                 </div>
                             </div>
-                            <div class="col-6">
-                                <div class="stat-box text-center p-2 rounded bg-light">
-                                    <div class="fw-bold fs-5">@FormatInterval(session.Configuration.CaptureIntervalSeconds)</div>
+                            <div class="col-4">
+                                <div class="stat-box rounded bg-light p-2">
+                                    <strong class="d-block">@FormatInterval(session.Configuration.CaptureIntervalSeconds)</strong>
                                     <small class="text-muted">Interval</small>
                                 </div>
                             </div>
-                        </div>
-                        <div class="small text-muted mb-2">
-                            <i class="bi bi-camera me-1"></i>
-                            <span class="text-truncate d-inline-block" style="max-width: 200px;" title="@session.Configuration.CameraUrl">
-                                @TruncateUrl(session.Configuration.CameraUrl)
-                            </span>
-                        </div>
-                        @if (session.LastCaptureAt.HasValue)
-                        {
-                            <div class="small text-muted">
-                                <i class="bi bi-clock me-1"></i>
-                                Last capture: @FormatTimeAgo(session.LastCaptureAt.Value)
+                            <div class="col-4">
+                                <div class="stat-box rounded bg-light p-2">
+                                    <strong class="d-block @(session.ConsecutiveCaptureFailures > 0 ? "text-danger" : "")">@session.ConsecutiveCaptureFailures</strong>
+                                    <small class="text-muted">Failures</small>
+                                </div>
                             </div>
+                        </div>
+
+                        @if (session.Status == SessionStatus.Scheduled && session.ScheduledFor.HasValue)
+                        {
+                            <p class="small text-muted mb-2"><i class="bi bi-calendar-event me-1"></i>@session.ScheduledFor.Value.ToLocalTime().ToString("MMM d, HH:mm")</p>
+                        }
+                        else if (session.LastCaptureAt.HasValue)
+                        {
+                            <p class="small text-muted mb-2"><i class="bi bi-clock me-1"></i>@FormatTimeAgo(session.LastCaptureAt.Value)</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(session.LastCaptureError))
+                        {
+                            <p class="small text-danger text-truncate mb-0" title="@session.LastCaptureError">@session.LastCaptureError</p>
                         }
                     </div>
                     <div class="card-footer bg-transparent">
                         <div class="d-flex gap-2">
-                            <a asp-page="/Sessions/Details" asp-route-id="@session.Id" class="btn btn-sm btn-outline-primary flex-fill">
-                                <i class="bi bi-eye me-1"></i>View
-                            </a>
-                            @if (session.Status == IPCamLapse.Models.SessionStatus.Created || session.Status == IPCamLapse.Models.SessionStatus.Paused)
+                            <a asp-page="/Sessions/Details" asp-route-id="@session.Id" class="btn btn-sm btn-outline-primary flex-fill">Open</a>
+                            @if (session.Status is SessionStatus.Ready or SessionStatus.Paused or SessionStatus.Failed)
                             {
                                 <button type="button" class="btn btn-sm btn-success" onclick="startSession('@session.Id', event)" aria-label="Start @session.Name">
                                     <i class="bi bi-play-fill"></i>
                                 </button>
                             }
-                            @if (session.Status == IPCamLapse.Models.SessionStatus.Running)
+                            @if (session.Status is SessionStatus.Capturing or SessionStatus.Scheduled)
                             {
-                                <button type="button" class="btn btn-sm btn-warning" onclick="stopSession('@session.Id', event)" aria-label="Pause @session.Name">
+                                <button type="button" class="btn btn-sm btn-warning" onclick="pauseSession('@session.Id', event)" aria-label="Pause @session.Name">
                                     <i class="bi bi-pause-fill"></i>
                                 </button>
                             }
                         </div>
                     </div>
-                </div>
+                </article>
             </div>
         }
     </div>
@@ -111,92 +135,95 @@ else
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
     <script>
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/progressHub")
+            .withUrl('/progressHub')
             .withAutomaticReconnect()
             .build();
 
-        connection.on("ProgressUpdate", (data) => {
-            const frameEl = document.querySelector(`.frame-count-${data.sessionId}`);
-            const progressBar = document.querySelector(`.progress-bar-${data.sessionId}`);
-            const progressText = document.querySelector(`.progress-text-${data.sessionId}`);
-            if (frameEl) frameEl.textContent = data.frameCount;
-            if (progressBar) progressBar.style.width = data.progressPercent.toFixed(1) + '%';
-            if (progressText) progressText.textContent = data.progressPercent.toFixed(1) + '%';
+        connection.on('ProgressUpdate', data => {
+            const frame = document.querySelector(`.frame-count-${data.sessionId}`);
+            const bar = document.querySelector(`.progress-bar-${data.sessionId}`);
+            const text = document.querySelector(`.progress-text-${data.sessionId}`);
+            if (frame) frame.textContent = data.frameCount;
+            if (bar) {
+                bar.style.width = data.progressPercent.toFixed(1) + '%';
+                bar.setAttribute('aria-valuenow', data.progressPercent.toFixed(1));
+            }
+            if (text) text.textContent = data.progressPercent.toFixed(1) + '%';
         });
+        connection.on('StatusChanged', () => location.reload());
+        connection.on('SessionCompleted', () => location.reload());
 
-        connection.on("SessionCompleted", () => location.reload());
-
-        async function startConnection() {
+        async function connect() {
             try {
                 await connection.start();
-                @foreach (var session in Model.Sessions.Where(s => s.Status == IPCamLapse.Models.SessionStatus.Running || s.Status == IPCamLapse.Models.SessionStatus.Paused))
+                @foreach (var session in Model.Sessions.Where(session => session.Status is SessionStatus.Capturing or SessionStatus.Scheduled or SessionStatus.Rendering))
                 {
-                    <text>await connection.invoke("JoinSession", "@session.Id");</text>
+                    <text>await connection.invoke('JoinSession', '@session.Id');</text>
                 }
-            } catch (err) {
-                console.error("SignalR error:", err);
+            } catch { }
+        }
+
+        async function sessionAction(id, action, event) {
+            const button = event.target.closest('button');
+            button.disabled = true;
+            try {
+                const response = await window.ipCamLapseFetch(`/api/sessions/${id}/${action}`, { method: 'POST' });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Action failed');
+                }
+                location.reload();
+            } catch (error) {
+                alert(error.message || 'Action failed');
+                button.disabled = false;
             }
         }
-        startConnection();
 
-        async function startSession(id, event) {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            try {
-                const r = await window.ipCamLapseFetch(`/api/sessions/${id}/start`, { method: 'POST' });
-                if (r.ok) location.reload();
-                else { const err = await r.json(); alert(err.message || 'Failed to start session'); }
-            } catch { alert('Start failed'); }
-            finally { btn.disabled = false; }
-        }
-
-        async function stopSession(id, event) {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            try {
-                const r = await window.ipCamLapseFetch(`/api/sessions/${id}/stop`, { method: 'POST' });
-                if (r.ok) location.reload();
-            } finally { btn.disabled = false; }
-        }
+        const startSession = (id, event) => sessionAction(id, 'start', event);
+        const pauseSession = (id, event) => sessionAction(id, 'pause', event);
+        connect();
     </script>
 }
 
 @functions {
-    string GetStatusBadgeClass(IPCamLapse.Models.SessionStatus status) => status switch
+    string GetStatusBadgeClass(SessionStatus status) => status switch
     {
-        IPCamLapse.Models.SessionStatus.Running => "bg-success",
-        IPCamLapse.Models.SessionStatus.Paused => "bg-warning text-dark",
-        IPCamLapse.Models.SessionStatus.Completed => "bg-primary",
-        IPCamLapse.Models.SessionStatus.Failed => "bg-danger",
-        IPCamLapse.Models.SessionStatus.Cancelled => "bg-secondary",
+        SessionStatus.Capturing => "bg-success",
+        SessionStatus.Paused => "bg-warning text-dark",
+        SessionStatus.Completed => "bg-primary",
+        SessionStatus.Failed => "bg-danger",
+        SessionStatus.Cancelled => "bg-secondary",
+        SessionStatus.Scheduled => "bg-info text-dark",
+        SessionStatus.Rendering => "bg-info text-dark",
         _ => "bg-light text-dark"
     };
 
-    string GetStatusCardClass(IPCamLapse.Models.SessionStatus status) => status switch
+    string GetStatusCardClass(SessionStatus status) => status switch
     {
-        IPCamLapse.Models.SessionStatus.Running => "border-success",
-        IPCamLapse.Models.SessionStatus.Failed => "border-danger",
-        _ => ""
+        SessionStatus.Capturing => "border-success",
+        SessionStatus.Failed => "border-danger",
+        _ => string.Empty
     };
 
-    string FormatInterval(int seconds)
+    string FormatInterval(int seconds) => seconds switch
     {
-        if (seconds < 60) return $"{seconds}s";
-        if (seconds < 3600) return $"{seconds / 60}m";
-        return $"{seconds / 3600}h";
+        < 60 => $"{seconds}s",
+        < 3600 => $"{seconds / 60}m",
+        _ => $"{seconds / 3600}h"
+    };
+
+    string FormatTimeAgo(DateTime value)
+    {
+        var difference = DateTime.UtcNow - value;
+        if (difference.TotalSeconds < 60) return $"{Math.Max(0, (int)difference.TotalSeconds)}s ago";
+        if (difference.TotalMinutes < 60) return $"{(int)difference.TotalMinutes}m ago";
+        if (difference.TotalHours < 24) return $"{(int)difference.TotalHours}h ago";
+        return $"{(int)difference.TotalDays}d ago";
     }
 
-    string TruncateUrl(string url)
+    string FormatBytes(long bytes)
     {
-        try { var uri = new Uri(url); return uri.Host; }
-        catch { return url.Length > 30 ? url[..30] + "..." : url; }
-    }
-
-    string FormatTimeAgo(DateTime dt)
-    {
-        var diff = DateTime.UtcNow - dt;
-        if (diff.TotalSeconds < 60) return $"{(int)diff.TotalSeconds}s ago";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
-        return $"{(int)diff.TotalHours}h ago";
+        if (bytes >= 1024L * 1024 * 1024) return $"{bytes / 1024d / 1024d / 1024d:F1} GB";
+        return $"{bytes / 1024d / 1024d:F1} MB";
     }
 }

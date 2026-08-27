@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using IPCamLapse.Models;
 using IPCamLapse.Options;
 using IPCamLapse.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,12 +20,16 @@ public sealed class CameraServiceTests
         });
         var service = CreateService(factory);
 
-        var result = await service.CaptureSnapshotAsync(
+        var result = await service.CaptureSnapshotAsync(new CameraEndpoint(
+            "Test camera",
             "http://192.168.1.25/snapshot.jpg",
             "camera",
-            "password");
+            "password",
+            false,
+            false));
 
-        Assert.NotNull(result);
+        Assert.True(result.Success, result.Error);
+        Assert.NotNull(result.Data);
         Assert.Equal("CameraStrict", factory.RequestedName);
         Assert.Equal("Basic", observedAuthorization?.Scheme);
         Assert.NotNull(observedAuthorization?.Parameter);
@@ -36,11 +41,13 @@ public sealed class CameraServiceTests
         var factory = new RecordingHttpClientFactory(_ => JpegResponse([0xFF, 0xD8, 0xFF, 0xD9]));
         var service = CreateService(factory);
 
-        await service.CaptureSnapshotAsync(
+        await service.CaptureSnapshotAsync(new CameraEndpoint(
+            "Test camera",
             "https://192.168.1.25/snapshot.jpg",
             null,
             null,
-            allowInvalidCertificate: true);
+            true,
+            false));
 
         Assert.Equal("CameraInsecure", factory.RequestedName);
     }
@@ -55,12 +62,16 @@ public sealed class CameraServiceTests
         var factory = new RecordingHttpClientFactory(_ => JpegResponse(payload));
         var service = CreateService(factory, maxSnapshotBytes: 1_024);
 
-        var result = await service.CaptureSnapshotAsync(
+        var result = await service.CaptureSnapshotAsync(new CameraEndpoint(
+            "Test camera",
             "http://192.168.1.25/snapshot.jpg",
             null,
-            null);
+            null,
+            false,
+            false));
 
-        Assert.Null(result);
+        Assert.False(result.Success);
+        Assert.Contains("size limit", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -77,12 +88,16 @@ public sealed class CameraServiceTests
         });
         var service = CreateService(factory);
 
-        var result = await service.CaptureSnapshotAsync(
+        var result = await service.CaptureSnapshotAsync(new CameraEndpoint(
+            "Test camera",
             "http://192.168.1.25/snapshot.jpg",
             null,
-            null);
+            null,
+            false,
+            false));
 
-        Assert.Null(result);
+        Assert.False(result.Success);
+        Assert.Contains("JPEG", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     private static CameraService CreateService(
@@ -94,6 +109,7 @@ public sealed class CameraServiceTests
             factory,
             new CameraUrlPolicy(Microsoft.Extensions.Options.Options.Create(options)),
             Microsoft.Extensions.Options.Options.Create(options),
+            new DemoFrameGenerator(),
             NullLogger<CameraService>.Instance);
     }
 

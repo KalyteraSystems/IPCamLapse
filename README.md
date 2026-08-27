@@ -1,26 +1,40 @@
 # IPCamLapse
 
-IPCamLapse captures JPEG snapshots from IP cameras and creates H.264 timelapse videos with FFmpeg.
+IPCamLapse turns IP camera snapshots into timelapse videos from a local web interface. It can also simulate a camera, so the entire capture-to-video workflow is available without hardware.
 
-Current version: `0.1.0` (preview).
+![IPCamLapse demo](docs/images/demo.gif)
 
-## Features
+## What it does
 
-- Concurrent capture sessions with pause and resume
-- Configurable intervals, capture lengths, and video lengths
-- Live progress and latest-frame previews
-- H.264 MP4 generation and downloads
-- Local session storage with protected camera passwords
+- Runs multiple capture sessions with explicit scheduled, capturing, paused, rendering, completed, and failed states
+- Measures active capture time correctly across pauses and schedule windows
+- Keeps captures on a fixed timeline even when camera requests are slow
+- Retries failed snapshots with exponential backoff and clear diagnostics
+- Saves reusable camera profiles with protected credentials
+- Offers a hardware-free demo camera
+- Schedules one-time, daily, or weekly captures, including overnight windows
+- Tracks estimated and actual storage, disk reserve, retention, and low-space warnings
+- Browses and downloads frames from a paged timeline gallery
+- Renders any frame range with resolution, fit/crop, frame rate, quality, and elapsed-time overlay controls
+- Regenerates and downloads H.264 MP4 videos
 
-## Requirements
+| Sessions | New session | Timeline |
+|---|---|---|
+| ![Sessions dashboard](docs/images/dashboard.png) | ![New session form](docs/images/new-session.png) | ![Frame timeline and video](docs/images/session-gallery.png) |
+
+## Try it
+
+Download a self-contained Windows or Linux archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
+
+FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space.
+
+## Run from source
+
+Requirements:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [FFmpeg](https://ffmpeg.org/download.html)
-- An HTTP or HTTPS JPEG snapshot endpoint
-
-IPCamLapse checks for FFmpeg beside the application, then in `/usr/bin`, `/usr/local/bin`, and `/opt/homebrew/bin` on Unix systems.
-
-## Run
+- [FFmpeg](https://ffmpeg.org/download.html) for video rendering
+- An HTTP or HTTPS JPEG snapshot endpoint for a real camera
 
 ```console
 git clone https://github.com/KalyteraSystems/IPCamLapse.git
@@ -29,48 +43,49 @@ dotnet restore --locked-mode
 dotnet run --project IPCamLapse --urls http://127.0.0.1:5080
 ```
 
-Open <http://127.0.0.1:5080> and enter the camera's snapshot URL. For Windows, `ffmpeg.exe` can be placed beside `IPCamLapse.exe`.
-
-## Security
-
-- The web UI accepts loopback connections only and has no user authentication.
-- Camera URLs are limited to HTTP or HTTPS private, loopback, or link-local IP addresses by default.
-- TLS certificates are validated unless disabled for a specific camera.
-- Passwords are protected with ASP.NET Core Data Protection.
-- Snapshot responses are size-limited and validated as JPEG images.
-- State-changing requests require an anti-forgery token.
-
-Do not bind the app directly to a LAN or the internet. See [SECURITY.md](SECURITY.md) for remote-access assumptions and vulnerability reporting.
+Open <http://127.0.0.1:5080>. The built-in demo camera works immediately.
 
 ## Configuration
 
-Environment variables use double underscores, such as `CameraAccess__MaxSnapshotBytes=10485760`.
+Environment variables use double underscores, such as `Storage__DataPath=/srv/ipcamlapse`.
 
 | Setting | Default | Purpose |
 |---|---:|---|
+| `Storage:DataPath` | `data` | Runtime data directory, relative to the application by default |
 | `CameraAccess:AllowHostnames` | `false` | Allow DNS hostnames in camera URLs |
 | `CameraAccess:AllowPublicAddresses` | `false` | Allow public camera addresses |
-| `CameraAccess:MaxSnapshotBytes` | `20971520` | Limit snapshot size in bytes |
+| `CameraAccess:MaxSnapshotBytes` | `20971520` | Maximum snapshot response size |
 
-Allowing hostnames or public addresses increases server-side request forgery exposure. The snapshot limit must be between 1 KiB and 100 MiB.
+Storage limits, disk reserve, retention, and frame-size estimates can be changed in the web interface.
 
-## Data
+## Security
 
-Runtime data is stored below `IPCamLapse/data/sessions/` and excluded from Git. A running session is restored as paused after an application restart.
+- The web interface accepts loopback connections only and has no user authentication.
+- Camera URLs default to HTTP or HTTPS literal private, loopback, or link-local addresses.
+- TLS certificates are checked unless a camera profile explicitly disables validation.
+- Camera passwords are protected with ASP.NET Core Data Protection.
+- Snapshot responses are bounded and validated as JPEG images.
+- State-changing requests require antiforgery validation.
 
-Videos use H.264, `yuv420p`, 1280×720 output, CRF 23, and fast-start metadata.
+Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECURITY.md) for deployment assumptions and vulnerability reporting.
+
+## Data and upgrades
+
+Runtime data is stored under the configured data path and excluded from Git. Existing v0.1 session JSON remains readable. A session interrupted by an application restart is restored as paused rather than silently resumed.
+
+See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries.
 
 ## Development
 
 ```console
-dotnet restore
+dotnet restore --locked-mode
 dotnet build --configuration Release --no-restore
 dotnet test --configuration Release --no-build
 dotnet format --verify-no-changes --no-restore
 dotnet list package --vulnerable --include-transitive
 ```
 
-CI runs on Windows and Ubuntu. See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+CI runs on Windows and Ubuntu. The integration suite exercises demo capture → render → HTTP download. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and look for [`good first issue`](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue) tickets if you want a small starting point.
 
 ## License
 

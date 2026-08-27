@@ -1,226 +1,257 @@
 @page "{id}"
 @model IPCamLapse.Pages.Sessions.DetailsModel
+@using IPCamLapse.Models
 @{
     ViewData["Title"] = Model.Session?.Name ?? "Session";
 }
 
-@if (Model.Session == null)
+@if (Model.Session is null)
 {
     <div class="alert alert-danger">Session not found.</div>
-    <a asp-page="/Index" class="btn btn-primary">Back</a>
+    <a asp-page="/Index" class="btn btn-primary">Back to sessions</a>
     return;
 }
 
-<div class="mb-4">
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-        <div>
-            <h1 class="h2 mb-1">@Model.Session.Name</h1>
-            <span class="badge @GetStatusBadgeClass(Model.Session.Status) fs-6" id="status-badge">
-                @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Running)
-                {
-                    <span class="spinner-border spinner-border-sm me-1"></span>
-                }
-                <span id="status-text">@Model.Session.Status</span>
-            </span>
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <h1 class="h2 mb-0">@Model.Session.Name</h1>
+            <span class="badge @GetStatusBadgeClass(Model.Session.Status) fs-6" id="status-badge">@Model.Session.Status</span>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Created || Model.Session.Status == IPCamLapse.Models.SessionStatus.Paused)
-            {
-                <button class="btn btn-success btn-lg" onclick="startSession(event)">
-                    <i class="bi bi-play-fill me-2"></i>Start
-                </button>
-            }
-            @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Running)
-            {
-                <button class="btn btn-warning btn-lg" onclick="stopSession(event)">
-                    <i class="bi bi-pause-fill me-2"></i>Pause
-                </button>
-                <button class="btn btn-outline-info" onclick="generatePartialVideo()" id="partial-video-btn">
-                    <i class="bi bi-film me-2"></i>Preview video
-                </button>
-            }
-            @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Running || Model.Session.Status == IPCamLapse.Models.SessionStatus.Paused)
-            {
-                <button class="btn btn-outline-danger" onclick="cancelSession()">
-                    <i class="bi bi-stop-fill me-2"></i>Cancel
-                </button>
-            }
-            @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Completed || Model.Session.HasPartialVideo)
-            {
-                <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-primary btn-lg">
-                    <i class="bi bi-download me-2"></i>Download
-                </a>
-            }
-            <button class="btn btn-outline-danger" onclick="deleteSession()" title="Delete session">
-                <i class="bi bi-trash"></i>
-            </button>
+        <p class="text-muted mb-0">@Model.CameraName · @FormatBytes(Model.SessionBytes)</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap" id="session-actions">
+        @if (Model.Session.Status is SessionStatus.Ready or SessionStatus.Paused or SessionStatus.Failed)
+        {
+            <button class="btn btn-success" onclick="runSessionAction('start', event)"><i class="bi bi-play-fill me-1"></i>Start</button>
+        }
+        @if (Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled or SessionStatus.Rendering)
+        {
+            <button class="btn btn-warning" onclick="runSessionAction('pause', event)"><i class="bi bi-pause-fill me-1"></i>Pause</button>
+        }
+        @if (Model.Session.Status is SessionStatus.Capturing or SessionStatus.Paused or SessionStatus.Scheduled)
+        {
+            <button class="btn btn-outline-danger" onclick="cancelSession()"><i class="bi bi-stop-fill me-1"></i>Cancel</button>
+        }
+        @if (Model.Session.VideoPath is not null || Model.Session.HasPartialVideo)
+        {
+            <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-primary"><i class="bi bi-download me-1"></i>Video</a>
+        }
+        <button class="btn btn-outline-danger" onclick="deleteSession()" aria-label="Delete session"><i class="bi bi-trash"></i></button>
+    </div>
+</div>
+
+@if (Model.Session.Status == SessionStatus.Rendering)
+{
+    <div class="alert alert-info d-flex align-items-center gap-3">
+        <span class="spinner-border spinner-border-sm"></span>
+        <span>Rendering video…</span>
+    </div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.Session.ErrorMessage))
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@Model.Session.ErrorMessage</div>
+}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h5 mb-0">Capture progress</h2>
+            <strong id="progress-label">@Model.Session.GetProgressPercent(DateTime.UtcNow).ToString("F1")%</strong>
         </div>
+        <div class="progress mb-3" style="height: 12px;">
+            <div class="progress-bar @(Model.Session.Status == SessionStatus.Capturing ? "progress-bar-striped progress-bar-animated" : "")"
+                 id="main-progress"
+                 style="width: @Model.Session.GetProgressPercent(DateTime.UtcNow).ToString("F1")%"
+                 role="progressbar"
+                 aria-valuenow="@Model.Session.GetProgressPercent(DateTime.UtcNow).ToString("F1")"
+                 aria-valuemin="0"
+                 aria-valuemax="100"></div>
+        </div>
+        <div class="row g-3 session-stats">
+            <div class="col-6 col-md-3"><span class="text-muted">Frames</span><strong id="frames-captured">@Model.Session.CapturedFrameCount</strong></div>
+            <div class="col-6 col-md-3"><span class="text-muted">Active time</span><strong id="active-time">@FormatDuration(Model.Session.GetActiveCaptureSeconds(DateTime.UtcNow))</strong></div>
+            <div class="col-6 col-md-3"><span class="text-muted">Next frame</span><strong id="next-capture">@(Model.Session.NextCaptureAt.HasValue ? Model.Session.NextCaptureAt.Value.ToLocalTime().ToString("HH:mm:ss") : "—")</strong></div>
+            <div class="col-6 col-md-3"><span class="text-muted">Failures</span><strong id="failure-count" class="@(Model.Session.ConsecutiveCaptureFailures > 0 ? "text-danger" : "")">@Model.Session.ConsecutiveCaptureFailures consecutive</strong></div>
+        </div>
+        @if (Model.Session.Status == SessionStatus.Scheduled && Model.Session.ScheduledFor.HasValue)
+        {
+            <p class="small text-muted mt-3 mb-0"><i class="bi bi-calendar-event me-1"></i>Next window: @Model.Session.ScheduledFor.Value.ToLocalTime().ToString("f")</p>
+        }
+        <div class="small text-danger mt-3 @(string.IsNullOrWhiteSpace(Model.Session.LastCaptureError) ? "d-none" : "")" id="capture-diagnostic">@Model.Session.LastCaptureError</div>
     </div>
 </div>
 
 <div class="row g-4">
-    <div class="col-lg-8">
-        @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Running || Model.Session.Status == IPCamLapse.Models.SessionStatus.Paused)
-        {
-            <div class="card shadow-sm mb-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Progress</h5>
-                        <span class="badge bg-info" id="remaining-time">
-                            @if (Model.Session.RemainingTime.HasValue)
-                            {
-                                @FormatTimeSpan(Model.Session.RemainingTime.Value)<text> remaining</text>
-                            }
-                        </span>
-                    </div>
-                    <div class="progress mb-2" style="height: 20px;">
-                        <div class="progress-bar progress-bar-striped @(Model.Session.Status == IPCamLapse.Models.SessionStatus.Running ? "progress-bar-animated" : "") bg-success"
-                             id="main-progress"
-                             style="width: @Model.Session.ProgressPercent.ToString("F1")%"
-                             role="progressbar"
-                             aria-valuenow="@Model.Session.ProgressPercent.ToString("F1")"
-                             aria-valuemin="0"
-                             aria-valuemax="100">
-                            <span id="progress-label">@Model.Session.ProgressPercent.ToString("F1")%</span>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between small text-muted">
-                        <span id="frames-captured">@Model.Session.CapturedFrameCount / @Model.Session.ExpectedTotalFrames frames</span>
-                        <span id="last-capture">
-                            @if (Model.Session.LastCaptureAt.HasValue)
-                            { <text>Last: @FormatTimeAgo(Model.Session.LastCaptureAt.Value)</text> }
-                        </span>
-                    </div>
-                </div>
-            </div>
-        }
-
-        <div class="card shadow-sm mb-4">
+    <div class="col-xl-8">
+        <section class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-image me-2"></i>Latest frame</h5>
-                <div class="d-flex gap-2 align-items-center">
-                    @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Running)
-                    {
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
-                            <label class="form-check-label small" for="autoRefresh">Auto-refresh</label>
-                        </div>
-                    }
-                    <button class="btn btn-sm btn-outline-secondary" onclick="refreshPreview()" aria-label="Refresh preview">
-                        <i class="bi bi-arrow-clockwise"></i>
-                    </button>
-                </div>
+                <h2 class="h5 mb-0">Latest frame</h2>
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshPreview()" aria-label="Refresh latest frame"><i class="bi bi-arrow-clockwise"></i></button>
             </div>
-            <div class="card-body p-2">
+            <div class="card-body p-2 preview-stage">
                 @if (Model.HasPreview)
                 {
-                    <img src="/api/sessions/@Model.Session.Id/preview?t=@DateTime.UtcNow.Ticks" 
-                         id="preview-img" alt="Latest frame" 
-                         class="img-fluid rounded w-100" style="max-height: 400px; object-fit: contain;" />
+                    <img src="/api/sessions/@Model.Session.Id/preview?t=@DateTime.UtcNow.Ticks" id="preview-img" alt="Latest captured frame" class="img-fluid rounded w-100" />
                 }
                 else
                 {
-                    <div class="text-center py-5 text-muted" id="no-preview">
-                        <i class="bi bi-camera display-3"></i>
-                        <p class="mt-2">No preview</p>
-                    </div>
-                    <img id="preview-img" src="" alt="Latest frame" class="img-fluid rounded w-100 d-none" style="max-height: 400px; object-fit: contain;" />
+                    <div class="text-center py-5 text-muted" id="no-preview"><i class="bi bi-camera display-3"></i><p class="mt-2 mb-0">Waiting for the first frame</p></div>
+                    <img id="preview-img" src="" alt="Latest captured frame" class="img-fluid rounded w-100 d-none" />
                 }
             </div>
-            @if (Model.Session.LastCaptureAt.HasValue)
-            {
-                <div class="card-footer text-muted small" id="capture-timestamp">
-                    <i class="bi bi-clock me-1"></i>@Model.Session.LastCaptureAt.Value.ToString("yyyy-MM-dd HH:mm:ss") UTC
-                </div>
-            }
-        </div>
+        </section>
 
-        <div class="card shadow-sm mb-4" id="video-section" 
-             style="@(Model.Session.Status == IPCamLapse.Models.SessionStatus.Completed || Model.Session.HasPartialVideo ? "" : "display:none;")">
+        @if (Model.Session.VideoPath is not null || Model.Session.HasPartialVideo)
+        {
+            <section class="card shadow-sm mb-4" id="video-section">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Video</h2>
+                    <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Download</a>
+                </div>
+                <div class="card-body p-2">
+                    <video id="video-player" controls preload="metadata" class="w-100 rounded">
+                        <source src="/api/sessions/@Model.Session.Id/video?t=@DateTime.UtcNow.Ticks" type="video/mp4" />
+                    </video>
+                </div>
+            </section>
+        }
+
+        <section class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-play-circle me-2"></i>Video
-                    @if (Model.Session.HasPartialVideo && Model.Session.Status != IPCamLapse.Models.SessionStatus.Completed)
+                <h2 class="h5 mb-0">Timeline</h2>
+                <span class="badge bg-light text-dark" id="gallery-count">@Model.Frames.Total frames</span>
+            </div>
+            <div class="card-body">
+                @if (Model.Frames.Total == 0)
+                {
+                    <div class="text-center text-muted py-4" id="empty-gallery">Captured frames will appear here.</div>
+                }
+                <div class="frame-gallery" id="frame-gallery">
+                    @foreach (var frame in Model.Frames.Items)
                     {
-                        <span class="badge bg-warning text-dark ms-2">Preview</span>
+                        <article class="frame-card">
+                            <a href="@frame.PreviewUrl" target="_blank" rel="noopener">
+                                <img src="@frame.PreviewUrl" alt="Frame @frame.Number captured @frame.CapturedAt.ToLocalTime().ToString("g")" loading="lazy" />
+                            </a>
+                            <div class="frame-meta">
+                                <span>#@frame.Number · @frame.CapturedAt.ToLocalTime().ToString("HH:mm:ss")</span>
+                                <a href="@frame.DownloadUrl" aria-label="Download frame @frame.Number"><i class="bi bi-download"></i></a>
+                            </div>
+                        </article>
                     }
-                </h5>
-                <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-sm btn-primary">
-                    <i class="bi bi-download me-1"></i>Download
-                </a>
+                </div>
+                @if (Model.Frames.Items.Count < Model.Frames.Total)
+                {
+                    <button class="btn btn-outline-secondary w-100 mt-3" id="load-more" onclick="loadMoreFrames()">Load more</button>
+                }
             </div>
-            <div class="card-body p-2">
-                <video id="video-player" controls class="w-100 rounded" style="max-height: 400px; background: #000;"
-                       preload="metadata">
-                    <source src="/api/sessions/@Model.Session.Id/video" type="video/mp4" id="video-source" />
-                    Your browser does not support video playback.
-                </video>
-            </div>
-        </div>
+        </section>
+
+        @if (Model.Frames.Total >= 2)
+        {
+            <section class="card shadow-sm mb-4">
+                <div class="card-header"><h2 class="h5 mb-0">Render video</h2></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-sm-3">
+                            <label class="form-label" for="range-start">First frame</label>
+                            <input id="range-start" type="number" class="form-control" min="1" max="@Model.Session.CapturedFrameCount" value="@(Model.Session.RenderRangeStart ?? 1)" />
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label" for="range-end">Last frame</label>
+                            <input id="range-end" type="number" class="form-control" min="1" max="@Model.Session.CapturedFrameCount" value="@(Model.Session.RenderRangeEnd ?? Model.Session.CapturedFrameCount)" />
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label" for="video-width">Width</label>
+                            <input id="video-width" type="number" class="form-control" min="320" max="3840" step="2" value="@Model.Session.Configuration.Video.Width" />
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label" for="video-height">Height</label>
+                            <input id="video-height" type="number" class="form-control" min="240" max="2160" step="2" value="@Model.Session.Configuration.Video.Height" />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="fit-mode">Fit</label>
+                            <select id="fit-mode" class="form-select">
+                                @foreach (var fitMode in Enum.GetValues<VideoFitMode>())
+                                {
+                                    <option value="@fitMode" selected="@(fitMode == Model.Session.Configuration.Video.FitMode)">@fitMode</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="frame-rate">Frame rate</label>
+                            <input id="frame-rate" type="number" class="form-control" min="0" max="60" value="@Model.Session.Configuration.Video.FrameRate" />
+                            <div class="form-text">0 chooses automatically.</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" for="video-quality">Quality (CRF)</label>
+                            <input id="video-quality" type="number" class="form-control" min="18" max="35" value="@Model.Session.Configuration.Video.QualityCrf" />
+                            <div class="form-text">Lower is higher quality.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input id="timestamp-overlay" type="checkbox" class="form-check-input" checked="@Model.Session.Configuration.Video.TimestampOverlay" />
+                                <label class="form-check-label" for="timestamp-overlay">Add elapsed-time overlay</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3 mt-4">
+                        <button class="btn btn-primary" id="render-button" onclick="renderVideo(event)" @(Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled or SessionStatus.Rendering ? "disabled" : null)>
+                            <i class="bi bi-film me-1"></i>@(Model.Session.VideoPath is null ? "Render" : "Regenerate")
+                        </button>
+                        <span class="small" id="render-result" role="status"></span>
+                    </div>
+                </div>
+            </section>
+        }
     </div>
 
-    <div class="col-lg-4">
-        <div class="card shadow-sm mb-3">
-            <div class="card-header">
-                <h5 class="mb-0">Details</h5>
+    <div class="col-xl-4">
+        <section class="card shadow-sm mb-4">
+            <div class="card-header"><h2 class="h5 mb-0">Session details</h2></div>
+            <div class="card-body">
+                <dl class="row small mb-0 detail-list">
+                    <dt class="col-5">Camera</dt><dd class="col-7">@Model.CameraName</dd>
+                    <dt class="col-5">Interval</dt><dd class="col-7">@FormatDuration(Model.Session.Configuration.CaptureIntervalSeconds)</dd>
+                    <dt class="col-5">Capture time</dt><dd class="col-7">@FormatDuration(Model.Session.Configuration.CaptureDurationSeconds)</dd>
+                    <dt class="col-5">Video target</dt><dd class="col-7">@Model.Session.Configuration.VideoTargetDurationSeconds.ToString("0.#") s</dd>
+                    <dt class="col-5">Schedule</dt><dd class="col-7">@FormatSchedule(Model.Session.Configuration.Schedule)</dd>
+                    <dt class="col-5">Retries</dt><dd class="col-7">@Model.Session.Configuration.MaxCaptureRetries</dd>
+                    <dt class="col-5">Failure limit</dt><dd class="col-7">@Model.Session.Configuration.MaxConsecutiveFailures consecutive</dd>
+                    <dt class="col-5">Created</dt><dd class="col-7">@Model.Session.CreatedAt.ToLocalTime().ToString("g")</dd>
+                    @if (Model.Session.CompletedAt.HasValue)
+                    {
+                        <dt class="col-5">Finished</dt><dd class="col-7">@Model.Session.CompletedAt.Value.ToLocalTime().ToString("g")</dd>
+                    }
+                </dl>
             </div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <tbody>
-                        <tr>
-                            <td class="text-muted ps-3">Preset</td>
-                            <td class="pe-3">@Model.Session.Configuration.PresetName</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted ps-3">Camera</td>
-                            <td class="pe-3 text-break small">@Model.Session.Configuration.CameraUrl</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted ps-3">Interval</td>
-                            <td class="pe-3">@FormatDuration(Model.Session.Configuration.CaptureIntervalSeconds)</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted ps-3">Capture length</td>
-                            <td class="pe-3">@FormatLongDuration(Model.Session.Configuration.CaptureDurationSeconds)</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted ps-3">Video length</td>
-                            <td class="pe-3">@Model.Session.Configuration.VideoTargetDurationSeconds s</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted ps-3">Created</td>
-                            <td class="pe-3 small">@Model.Session.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
-                        </tr>
-                        @if (Model.Session.StartedAt.HasValue)
-                        {
-                            <tr>
-                                <td class="text-muted ps-3">Started</td>
-                                <td class="pe-3 small">@Model.Session.StartedAt.Value.ToString("MMM dd, yyyy HH:mm")</td>
-                            </tr>
-                        }
-                        @if (Model.Session.CompletedAt.HasValue)
-                        {
-                            <tr>
-                                <td class="text-muted ps-3">Completed</td>
-                                <td class="pe-3 small">@Model.Session.CompletedAt.Value.ToString("MMM dd, yyyy HH:mm")</td>
-                            </tr>
-                        }
-                        <tr>
-                            <td class="text-muted ps-3">Frames</td>
-                            <td class="pe-3"><span id="info-frames">@Model.Session.CapturedFrameCount</span> / @Model.Session.ExpectedTotalFrames</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        </section>
 
-        @if (!string.IsNullOrEmpty(Model.Session.ErrorMessage))
-        {
-            <div class="alert alert-danger">
-                <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Error</h6>
-                <p class="mb-0 small">@Model.Session.ErrorMessage</p>
+        <section class="card shadow-sm mb-4">
+            <div class="card-header"><h2 class="h5 mb-0">Activity</h2></div>
+            <div class="card-body">
+                @if (Model.Events.Count == 0)
+                {
+                    <p class="small text-muted mb-0">No activity yet.</p>
+                }
+                else
+                {
+                    <div class="event-timeline" id="event-timeline">
+                        @foreach (var captureEvent in Model.Events)
+                        {
+                            <div class="event-item @captureEvent.Kind.ToString().ToLowerInvariant()">
+                                <span class="event-dot"></span>
+                                <div>
+                                    <strong>@FormatEvent(captureEvent)</strong>
+                                    <time>@captureEvent.At.ToLocalTime().ToString("g")</time>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
-        }
+        </section>
     </div>
 </div>
 
@@ -228,236 +259,259 @@
     <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
     <script>
         const sessionId = '@Model.Session.Id';
-        let autoRefreshInterval = null;
-        let previewInterval = null;
+        let galleryOffset = @Model.Frames.Items.Count;
+        let pollTimer = null;
 
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/progressHub")
-            .withAutomaticReconnect()
-            .build();
-
-        connection.on("ProgressUpdate", (data) => {
-            if (data.sessionId !== sessionId) return;
-            updateProgress(data.progressPercent, data.frameCount, data.lastCaptureAt);
-        });
-
-        connection.on("SessionCompleted", (data) => {
-            if (data.sessionId !== sessionId) return;
-            updateStatusBadge('Completed', 'bg-primary');
-            if (data.hasVideo) {
-                document.getElementById('video-section').style.display = '';
-                const video = document.getElementById('video-player');
-                video.load();
-            }
-            stopAutoRefresh();
-            setTimeout(() => location.reload(), 2000);
-        });
-
-        async function startSignalR() {
+        async function api(path, options = {}) {
+            const response = await window.ipCamLapseFetch(path, options);
+            if (response.ok) return response;
+            let message = 'Action failed';
             try {
-                await connection.start();
-                await connection.invoke("JoinSession", sessionId);
-            } catch (err) {
-                console.error("SignalR failed:", err);
-                startPolling();
+                const data = await response.json();
+                message = data.message || data.detail || data.title || message;
+            } catch { }
+            throw new Error(message);
+        }
+
+        async function runSessionAction(action, event) {
+            const button = event.target.closest('button');
+            button.disabled = true;
+            try {
+                await api(`/api/sessions/${sessionId}/${action}`, { method: 'POST' });
+                location.reload();
+            } catch (error) {
+                alert(error.message);
+                button.disabled = false;
             }
         }
 
-        function startPolling() {
-            if (autoRefreshInterval) return;
-            autoRefreshInterval = setInterval(pollStatus, 10000);
+        async function cancelSession() {
+            if (!confirm('Cancel this session? Captured frames will be kept.')) return;
+            try {
+                await api(`/api/sessions/${sessionId}/cancel`, { method: 'POST' });
+                location.reload();
+            } catch (error) { alert(error.message); }
+        }
+
+        async function deleteSession() {
+            if (!confirm('Delete this session and all captured files?')) return;
+            try {
+                await api(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+                location.href = '/';
+            } catch (error) { alert(error.message); }
+        }
+
+        async function renderVideo(event) {
+            const button = event.target.closest('button');
+            const result = document.getElementById('render-result');
+            const start = parseInt(document.getElementById('range-start').value);
+            const end = parseInt(document.getElementById('range-end').value);
+            if (start > end) {
+                result.className = 'small text-danger';
+                result.textContent = 'First frame must come before last frame.';
+                return;
+            }
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Rendering…';
+            result.className = 'small text-muted';
+            result.textContent = 'This can take a moment.';
+            try {
+                await api(`/api/sessions/${sessionId}/render`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        startFrame: start,
+                        endFrame: end,
+                        settings: {
+                            width: parseInt(document.getElementById('video-width').value),
+                            height: parseInt(document.getElementById('video-height').value),
+                            fitMode: document.getElementById('fit-mode').selectedIndex,
+                            frameRate: parseInt(document.getElementById('frame-rate').value),
+                            qualityCrf: parseInt(document.getElementById('video-quality').value),
+                            timestampOverlay: document.getElementById('timestamp-overlay').checked
+                        }
+                    })
+                });
+                result.className = 'small text-success';
+                result.textContent = 'Video ready.';
+                location.reload();
+            } catch (error) {
+                result.className = 'small text-danger';
+                result.textContent = error.message;
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-film me-1"></i>Render';
+            }
+        }
+
+        function refreshPreview() {
+            const image = document.getElementById('preview-img');
+            if (!image) return;
+            const next = `/api/sessions/${sessionId}/preview?t=${Date.now()}`;
+            const probe = new Image();
+            probe.onload = () => {
+                image.src = next;
+                image.classList.remove('d-none');
+                document.getElementById('no-preview')?.classList.add('d-none');
+            };
+            probe.src = next;
+        }
+
+        async function loadMoreFrames() {
+            const button = document.getElementById('load-more');
+            button.disabled = true;
+            try {
+                const response = await fetch(`/api/sessions/${sessionId}/frames?offset=${galleryOffset}&limit=24`);
+                const page = await response.json();
+                page.items.forEach(addFrame);
+                galleryOffset += page.items.length;
+                if (galleryOffset >= page.total) button.remove();
+                else button.disabled = false;
+            } catch {
+                button.disabled = false;
+            }
+        }
+
+        function addFrame(frame) {
+            const article = document.createElement('article');
+            article.className = 'frame-card';
+            const link = document.createElement('a');
+            link.href = frame.previewUrl;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            const image = document.createElement('img');
+            image.src = frame.previewUrl;
+            image.alt = `Frame ${frame.number}`;
+            image.loading = 'lazy';
+            link.appendChild(image);
+            const meta = document.createElement('div');
+            meta.className = 'frame-meta';
+            const label = document.createElement('span');
+            label.textContent = `#${frame.number} · ${new Date(frame.capturedAt).toLocaleTimeString()}`;
+            const download = document.createElement('a');
+            download.href = frame.downloadUrl;
+            download.ariaLabel = `Download frame ${frame.number}`;
+            download.innerHTML = '<i class="bi bi-download"></i>';
+            meta.append(label, download);
+            article.append(link, meta);
+            document.getElementById('frame-gallery').appendChild(article);
+        }
+
+        function updateStatus(data) {
+            if (data.sessionId === sessionId) location.reload();
+        }
+
+        function updateProgress(data) {
+            if (data.sessionId !== sessionId) return;
+            const percent = data.progressPercent.toFixed(1);
+            document.getElementById('main-progress').style.width = percent + '%';
+            document.getElementById('main-progress').setAttribute('aria-valuenow', percent);
+            document.getElementById('progress-label').textContent = percent + '%';
+            document.getElementById('frames-captured').textContent = data.frameCount;
+            if (data.nextCaptureAt) document.getElementById('next-capture').textContent = new Date(data.nextCaptureAt).toLocaleTimeString();
+            refreshPreview();
         }
 
         async function pollStatus() {
             try {
-                const r = await fetch(`/api/sessions/${sessionId}/status`);
-                if (!r.ok) return;
-                const data = await r.json();
-                updateProgress(data.progressPercent, data.capturedFrameCount, data.lastCaptureAt);
-                if (data.status === 'Completed') {
-                    clearInterval(autoRefreshInterval);
+                const response = await fetch(`/api/sessions/${sessionId}/status`);
+                if (!response.ok) return;
+                const data = await response.json();
+                const percent = data.progressPercent.toFixed(1);
+                document.getElementById('main-progress').style.width = percent + '%';
+                document.getElementById('progress-label').textContent = percent + '%';
+                document.getElementById('frames-captured').textContent = data.capturedFrameCount;
+                document.getElementById('active-time').textContent = formatSeconds(data.activeCaptureSeconds);
+                document.getElementById('failure-count').textContent = `${data.consecutiveFailures} consecutive`;
+                if (data.lastError) {
+                    const diagnostic = document.getElementById('capture-diagnostic');
+                    diagnostic.textContent = data.lastError;
+                    diagnostic.classList.remove('d-none');
+                }
+                if (!['Capturing', 'Scheduled'].includes(data.status)) {
+                    clearInterval(pollTimer);
                     location.reload();
                 }
             } catch { }
         }
 
-        function updateProgress(percent, frames, lastCapture) {
-            const progressBar = document.getElementById('main-progress');
-            const progressLabel = document.getElementById('progress-label');
-            const framesEl = document.getElementById('frames-captured');
-            const lastCaptureEl = document.getElementById('last-capture');
-            const infoFrames = document.getElementById('info-frames');
-
-            if (progressBar) {
-                progressBar.style.width = percent.toFixed(1) + '%';
-                progressBar.setAttribute('aria-valuenow', percent.toFixed(1));
-                progressLabel.textContent = percent.toFixed(1) + '%';
-            }
-            const expectedFrames = @Model.Session.ExpectedTotalFrames;
-            if (framesEl) framesEl.textContent = `${frames} / ${expectedFrames} frames`;
-            if (infoFrames) infoFrames.textContent = frames;
-            if (lastCaptureEl && lastCapture) {
-                const seconds = Math.max(0, (Date.now() - new Date(lastCapture).getTime()) / 1000);
-                lastCaptureEl.textContent = `Last: ${formatTimeAgo(seconds)}`;
-            }
+        function formatSeconds(seconds) {
+            seconds = Math.max(0, Math.floor(seconds));
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const remainder = seconds % 60;
+            return hours ? `${hours}h ${minutes}m` : minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
         }
 
-        function updateStatusBadge(status, badgeClass) {
-            const badge = document.getElementById('status-badge');
-            const statusText = document.getElementById('status-text');
-            if (badge) badge.className = `badge ${badgeClass} fs-6`;
-            if (statusText) statusText.textContent = status;
-        }
+        const connection = new signalR.HubConnectionBuilder().withUrl('/progressHub').withAutomaticReconnect().build();
+        connection.on('ProgressUpdate', updateProgress);
+        connection.on('StatusChanged', updateStatus);
+        connection.on('SessionCompleted', updateStatus);
+        connection.on('CaptureDiagnostic', data => {
+            if (data.sessionId !== sessionId) return;
+            const diagnostic = document.getElementById('capture-diagnostic');
+            diagnostic.textContent = data.error || 'Camera capture failed.';
+            diagnostic.classList.remove('d-none');
+            document.getElementById('failure-count').textContent = `${data.consecutiveFailures} consecutive`;
+        });
 
-        function formatTimeAgo(seconds) {
-            if (seconds < 60) return `${Math.floor(seconds)}s ago`;
-            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-            return `${Math.floor(seconds / 3600)}h ago`;
-        }
-
-        function toggleAutoRefresh() {
-            const checked = document.getElementById('autoRefresh').checked;
-            if (checked) startPreviewRefresh();
-            else stopPreviewRefresh();
-        }
-
-        function startPreviewRefresh() {
-            if (previewInterval) return;
-            previewInterval = setInterval(refreshPreview, 30000);
-        }
-
-        function stopPreviewRefresh() {
-            if (previewInterval) { clearInterval(previewInterval); previewInterval = null; }
-        }
-
-        function stopAutoRefresh() {
-            stopPreviewRefresh();
-            if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
-        }
-
-        function refreshPreview() {
-            const img = document.getElementById('preview-img');
-            if (!img) return;
-            const newSrc = `/api/sessions/${sessionId}/preview?t=${Date.now()}`;
-            const tempImg = new Image();
-            tempImg.onload = () => {
-                img.src = newSrc;
-                img.classList.remove('d-none');
-                const noPreview = document.getElementById('no-preview');
-                if (noPreview) noPreview.classList.add('d-none');
-            };
-            tempImg.src = newSrc;
-        }
-
-        async function startSession(event) {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
+        async function connect() {
             try {
-                const r = await window.ipCamLapseFetch(`/api/sessions/${sessionId}/start`, { method: 'POST' });
-                if (r.ok) location.reload();
-                else { const err = await r.json(); alert(err.message || 'Failed to start'); btn.disabled = false; }
-            } catch { alert('Start failed'); btn.disabled = false; }
+                await connection.start();
+                await connection.invoke('JoinSession', sessionId);
+            } catch { }
         }
 
-        async function stopSession(event) {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            try {
-                await window.ipCamLapseFetch(`/api/sessions/${sessionId}/stop`, { method: 'POST' });
-                location.reload();
-            } finally { btn.disabled = false; }
-        }
-
-        async function cancelSession() {
-            if (!confirm('Cancel this session?')) return;
-            try {
-                await window.ipCamLapseFetch(`/api/sessions/${sessionId}/cancel`, { method: 'POST' });
-                location.reload();
-            } catch { alert('Cancel failed'); }
-        }
-
-        async function deleteSession() {
-            if (!confirm('Delete this session and its files?')) return;
-            try {
-                const r = await window.ipCamLapseFetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-                if (r.ok) window.location.href = '/';
-                else alert('Delete failed');
-            } catch { alert('Delete failed'); }
-        }
-
-        async function generatePartialVideo() {
-            const btn = document.getElementById('partial-video-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-            try {
-                const r = await window.ipCamLapseFetch(`/api/sessions/${sessionId}/generate-partial-video`, { method: 'POST' });
-                if (r.ok) {
-                    document.getElementById('video-section').style.display = '';
-                    const video = document.getElementById('video-player');
-                    video.load();
-                } else {
-                    const err = await r.json();
-                    alert(err.detail || err.title || 'Video generation failed');
-                }
-            } catch {
-                alert('Video generation failed');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-film me-2"></i>Preview video';
-            }
-        }
-
-        @if (Model.Session.Status == IPCamLapse.Models.SessionStatus.Running)
+        @if (Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled)
         {
             <text>
-            startSignalR();
-            startPreviewRefresh();
+            connect();
+            pollTimer = setInterval(pollStatus, 5000);
             </text>
         }
     </script>
 }
 
 @functions {
-    string GetStatusBadgeClass(IPCamLapse.Models.SessionStatus status) => status switch
+    string GetStatusBadgeClass(SessionStatus status) => status switch
     {
-        IPCamLapse.Models.SessionStatus.Running => "bg-success",
-        IPCamLapse.Models.SessionStatus.Paused => "bg-warning text-dark",
-        IPCamLapse.Models.SessionStatus.Completed => "bg-primary",
-        IPCamLapse.Models.SessionStatus.Failed => "bg-danger",
-        IPCamLapse.Models.SessionStatus.Cancelled => "bg-secondary",
+        SessionStatus.Capturing => "bg-success",
+        SessionStatus.Paused => "bg-warning text-dark",
+        SessionStatus.Completed => "bg-primary",
+        SessionStatus.Failed => "bg-danger",
+        SessionStatus.Cancelled => "bg-secondary",
+        SessionStatus.Scheduled => "bg-info text-dark",
+        SessionStatus.Rendering => "bg-info text-dark",
         _ => "bg-light text-dark"
     };
 
-    string FormatTimeAgo(DateTime dt)
+    string FormatBytes(long bytes)
     {
-        var diff = DateTime.UtcNow - dt;
-        if (diff.TotalSeconds < 60) return $"{(int)diff.TotalSeconds}s ago";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
-        return $"{(int)diff.TotalHours}h ago";
+        if (bytes >= 1024L * 1024 * 1024) return $"{bytes / 1024d / 1024d / 1024d:F1} GB";
+        if (bytes >= 1024L * 1024) return $"{bytes / 1024d / 1024d:F1} MB";
+        return $"{bytes / 1024d:F0} KB";
     }
 
-    string FormatTimeSpan(TimeSpan ts)
+    string FormatDuration(double seconds)
     {
-        if (ts.TotalDays >= 1) return $"{(int)ts.TotalDays}d {ts.Hours}h";
-        if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours}h {ts.Minutes}m";
-        return $"{(int)ts.TotalMinutes}m {ts.Seconds}s";
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        if (span.TotalDays >= 1) return $"{(int)span.TotalDays}d {span.Hours}h";
+        if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
+        if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m {span.Seconds}s";
+        return $"{span.Seconds}s";
     }
 
-    string FormatDuration(int seconds)
+    string FormatSchedule(CaptureSchedule schedule) => schedule.Frequency switch
     {
-        if (seconds < 60) return $"{seconds}s";
-        if (seconds < 3600) return $"{seconds / 60}m {seconds % 60}s";
-        return $"{seconds / 3600}h {(seconds % 3600) / 60}m";
-    }
+        ScheduleFrequency.Once when schedule.StartAtUtc.HasValue => $"Once · {schedule.StartAtUtc.Value.ToLocalTime():g}",
+        ScheduleFrequency.Daily => $"Daily · {schedule.WindowStartLocal:hh\\:mm}–{schedule.WindowEndLocal:hh\\:mm}",
+        ScheduleFrequency.Weekly => $"{schedule.WeeklyDay} · {schedule.WindowStartLocal:hh\\:mm}–{schedule.WindowEndLocal:hh\\:mm}",
+        _ => "Continuous"
+    };
 
-    string FormatLongDuration(long seconds)
+    string FormatEvent(CaptureEvent captureEvent) => captureEvent.Kind switch
     {
-        if (seconds < 3600) return $"{seconds / 60} min";
-        if (seconds < 86400) return $"{seconds / 3600} hours";
-        if (seconds < 604800) return $"{seconds / 86400} days";
-        if (seconds < 2592000) return $"{seconds / 604800} weeks";
-        if (seconds < 31536000) return $"{seconds / 2592000} months";
-        return $"{seconds / 31536000} years";
-    }
+        CaptureEventKind.Frame => $"Frame #{captureEvent.FrameNumber}",
+        CaptureEventKind.Failure => captureEvent.Message ?? "Capture failed",
+        _ => captureEvent.Message ?? "State changed"
+    };
 }

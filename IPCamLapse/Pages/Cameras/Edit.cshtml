@@ -1,0 +1,64 @@
+@page "{id?}"
+@model IPCamLapse.Pages.Cameras.EditModel
+@{
+    ViewData["Title"] = Model.IsNew ? "Add camera" : "Edit camera";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">@ViewData["Title"]</h1>
+    <a asp-page="/Cameras/Index" class="btn btn-outline-secondary">Back</a>
+</div>
+
+<form method="post" class="card shadow-sm camera-form">
+    <div class="card-body p-4">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+        <input asp-for="Profile.Id" type="hidden" />
+        <input asp-for="Profile.CreatedAt" type="hidden" />
+        <input asp-for="Profile.IsDemo" type="hidden" />
+
+        <div class="mb-3">
+            <label asp-for="Profile.Name" class="form-label fw-semibold">Name</label>
+            <input asp-for="Profile.Name" class="form-control form-control-lg" placeholder="Front gate" autofocus />
+            <span asp-validation-for="Profile.Name" class="text-danger small"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Profile.Url" class="form-label fw-semibold">Snapshot URL</label>
+            <input asp-for="Profile.Url" type="url" class="form-control" placeholder="http://192.168.1.100/snapshot.jpg" />
+            <span asp-validation-for="Profile.Url" class="text-danger small"></span>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label asp-for="Profile.Username" class="form-label">Username</label>
+                <input asp-for="Profile.Username" class="form-control" autocomplete="username" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="NewPassword" class="form-label">@(Model.IsNew ? "Password" : "New password")</label>
+                <input asp-for="NewPassword" type="password" class="form-control" autocomplete="new-password" />
+                @if (!Model.IsNew)
+                {
+                    <div class="form-text">Leave blank to keep the saved password.</div>
+                }
+            </div>
+        </div>
+        @if (!Model.IsNew)
+        {
+            <div class="form-check mb-3">
+                <input asp-for="ClearPassword" class="form-check-input" />
+                <label asp-for="ClearPassword" class="form-check-label">Remove saved password</label>
+            </div>
+        }
+        <div class="form-check">
+            <input asp-for="Profile.AllowInvalidCertificate" class="form-check-input" />
+            <label asp-for="Profile.AllowInvalidCertificate" class="form-check-label">Ignore TLS certificate errors</label>
+            <div class="form-text">Use only with a camera you trust.</div>
+        </div>
+    </div>
+    <div class="card-footer bg-transparent p-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save camera</button>
+        <a asp-page="/Cameras/Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

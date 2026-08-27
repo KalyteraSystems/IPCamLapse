@@ -1,15 +1,29 @@
+using System.Globalization;
 using FFMpegCore;
-using FFMpegCore.Enums;
+using IPCamLapse.Models;
 
 namespace IPCamLapse.Services;
 
+public sealed record VideoRenderRequest(
+    IReadOnlyList<string> ImagePaths,
+    string OutputPath,
+    double TargetDurationSeconds,
+    VideoSettings Settings);
+
+public sealed record VideoRenderResult(bool Success, string? Path, string? Error)
+{
+    public static VideoRenderResult Failed(string error) => new(false, null, error);
+}
+
 public interface IVideoService
 {
-    Task<string?> CreateTimeLapseAsync(string imagesFolder, string outputPath, double targetDurationSeconds, CancellationToken cancellationToken = default);
+    Task<VideoRenderResult> CreateTimeLapseAsync(
+        VideoRenderRequest request,
+        CancellationToken cancellationToken = default);
     Task<bool> IsFfmpegAvailableAsync();
 }
 
-public class VideoService : IVideoService
+public sealed class VideoService : IVideoService
 {
     private readonly ILogger<VideoService> _logger;
 
@@ -18,100 +32,144 @@ public class VideoService : IVideoService
         _logger = logger;
     }
 
-    private static string? FindFfmpegBinaryFolder()
-    {
-        var ffmpegExe = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
-
-        var appDir = AppContext.BaseDirectory;
-        if (File.Exists(Path.Combine(appDir, ffmpegExe)))
-            return appDir;
-
-        foreach (var dir in new[] { "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin" })
-        {
-            if (File.Exists(Path.Combine(dir, ffmpegExe)))
-                return dir;
-        }
-
-        return null;
-    }
-
     public Task<bool> IsFfmpegAvailableAsync()
     {
         return Task.FromResult(FindFfmpegBinaryFolder() is not null);
     }
 
-    public async Task<string?> CreateTimeLapseAsync(string imagesFolder, string outputPath, double targetDurationSeconds, CancellationToken cancellationToken = default)
+    public async Task<VideoRenderResult> CreateTimeLapseAsync(
+        VideoRenderRequest request,
+        CancellationToken cancellationToken = default)
     {
+        if (request.ImagePaths.Count < 2)
+            return VideoRenderResult.Failed("At least two frames are required.");
+        if (request.TargetDurationSeconds <= 0)
+            return VideoRenderResult.Failed("Video length must be positive.");
+        var settingsError = ValidateSettings(request.Settings);
+        if (settingsError is not null)
+            return VideoRenderResult.Failed(settingsError);
+        var binaryFolder = FindFfmpegBinaryFolder();
+        if (binaryFolder is null)
+            return VideoRenderResult.Failed("FFmpeg was not found.");
+
+        var fileListPath = Path.Combine(Path.GetTempPath(), $"ipcam-{Guid.NewGuid():N}.txt");
         try
         {
-            var binaryFolder = FindFfmpegBinaryFolder();
-            if (binaryFolder is null)
+            cancellationToken.ThrowIfCancellationRequested();
+            var frameRate = request.Settings.FrameRate > 0
+                ? request.Settings.FrameRate
+                : Math.Clamp((request.ImagePaths.Count + 1) / request.TargetDurationSeconds, 1, 60);
+            var frameDuration = 1d / frameRate;
+            var lines = new List<string>(request.ImagePaths.Count * 2 + 1);
+            foreach (var imagePath in request.ImagePaths)
             {
-                _logger.LogError("ffmpeg binary not found. Place ffmpeg alongside the application executable or install it system-wide.");
-                return null;
+                lines.Add($"file '{EscapeConcatPath(imagePath)}'");
+                lines.Add($"duration {frameDuration.ToString("F6", CultureInfo.InvariantCulture)}");
             }
+            lines.Add($"file '{EscapeConcatPath(request.ImagePaths[^1])}'");
+            await File.WriteAllLinesAsync(fileListPath, lines, cancellationToken);
 
-            var imageFiles = Directory.GetFiles(imagesFolder, "*.jpg")
-                .OrderBy(f => f)
-                .ToArray();
+            var outputDirectory = Path.GetDirectoryName(request.OutputPath);
+            if (string.IsNullOrWhiteSpace(outputDirectory))
+                return VideoRenderResult.Failed("Output path is invalid.");
+            Directory.CreateDirectory(outputDirectory);
+            var filter = BuildVideoFilter(request.Settings);
+            _logger.LogInformation(
+                "Rendering {FrameCount} frames to {OutputPath}",
+                request.ImagePaths.Count,
+                request.OutputPath);
 
-            if (imageFiles.Length < 2)
-            {
-                _logger.LogWarning("Not enough images to create timelapse in {ImagesFolder}: {Count} images", imagesFolder, imageFiles.Length);
-                return null;
-            }
+            var success = await FFMpegArguments
+                .FromFileInput(fileListPath, false, options => options
+                    .WithCustomArgument("-f concat -safe 0"))
+                .OutputToFile(request.OutputPath, true, options => options
+                    .WithVideoCodec("libx264")
+                    .WithFramerate(frameRate)
+                    .WithConstantRateFactor(request.Settings.QualityCrf)
+                    .WithCustomArgument($"-vf \"{filter}\"")
+                    .WithCustomArgument("-pix_fmt yuv420p")
+                    .WithCustomArgument("-movflags +faststart")
+                    .WithCustomArgument("-an"))
+                .ProcessAsynchronously(true, new FFOptions { BinaryFolder = binaryFolder });
 
-            double frameRate = Math.Max(1, imageFiles.Length / targetDurationSeconds);
-            frameRate = Math.Min(frameRate, 60);
-
-            _logger.LogInformation("Creating timelapse: {ImageCount} images at {FrameRate:F2}fps -> {Duration}s video", imageFiles.Length, frameRate, targetDurationSeconds);
-
-            var fileListPath = Path.Combine(Path.GetTempPath(), $"ffmpeg_list_{Guid.NewGuid():N}.txt");
-            try
-            {
-                double frameDuration = targetDurationSeconds / imageFiles.Length;
-                var lines = imageFiles.SelectMany(f => new[]
-                {
-                    $"file '{f.Replace("'", "\\'")}'",
-                    $"duration {frameDuration.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}"
-                });
-                await File.WriteAllLinesAsync(fileListPath, lines, cancellationToken);
-
-                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-
-                var success = await FFMpegArguments
-                    .FromFileInput(fileListPath, false, options => options
-                        .WithCustomArgument("-f concat -safe 0"))
-                    .OutputToFile(outputPath, true, options => options
-                        .WithVideoCodec("libx264")
-                        .WithFramerate(frameRate)
-                        .WithConstantRateFactor(23)
-                        .WithVideoFilters(filterOptions => filterOptions
-                            .Scale(VideoSize.Hd))
-                        .WithCustomArgument("-pix_fmt yuv420p")
-                        .WithCustomArgument("-movflags +faststart")
-                        .WithCustomArgument("-an"))
-                    .ProcessAsynchronously(true, new FFOptions { BinaryFolder = binaryFolder });
-
-                if (success && File.Exists(outputPath))
-                {
-                    _logger.LogInformation("Created timelapse {OutputPath}", outputPath);
-                    return outputPath;
-                }
-
-                _logger.LogError("FFmpeg processing failed for {OutputPath}", outputPath);
-                return null;
-            }
-            finally
-            {
-                if (File.Exists(fileListPath))
-                    File.Delete(fileListPath);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return success && File.Exists(request.OutputPath)
+                ? new VideoRenderResult(true, request.OutputPath, null)
+                : VideoRenderResult.Failed("FFmpeg did not produce a video.");
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            _logger.LogError(ex, "Error creating timelapse video");
-            return null;
+            throw;
         }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Video rendering failed");
+            return VideoRenderResult.Failed("Video rendering failed. Check the system page and logs.");
+        }
+        finally
+        {
+            if (File.Exists(fileListPath))
+                File.Delete(fileListPath);
+        }
+    }
+
+    private static string BuildVideoFilter(VideoSettings settings)
+    {
+        var width = settings.Width - settings.Width % 2;
+        var height = settings.Height - settings.Height % 2;
+        var resize = settings.FitMode switch
+        {
+            VideoFitMode.Fill =>
+                $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}",
+            VideoFitMode.Stretch => $"scale={width}:{height}",
+            _ =>
+                $"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
+        };
+        return settings.TimestampOverlay
+            ? resize + ",drawtext=text='%{pts\\:hms}':x=20:y=h-th-20:fontcolor=white:fontsize=24:box=1:boxcolor=black@0.55"
+            : resize;
+    }
+
+    private static string? ValidateSettings(VideoSettings settings)
+    {
+        if (settings.Width is < 320 or > 3840 || settings.Height is < 240 or > 2160 ||
+            settings.Width % 2 != 0 || settings.Height % 2 != 0)
+        {
+            return "Video dimensions must be even and within the supported range.";
+        }
+        if (settings.FrameRate is < 0 or > 60)
+            return "Video frame rate must be between 0 and 60.";
+        if (settings.QualityCrf is < 18 or > 35)
+            return "Video quality must be between 18 and 35.";
+        if (!Enum.IsDefined(settings.FitMode))
+            return "Video fit mode is invalid.";
+        return null;
+    }
+
+    private static string EscapeConcatPath(string path)
+    {
+        return Path.GetFullPath(path).Replace('\\', '/').Replace("'", "\\'");
+    }
+
+    private static string? FindFfmpegBinaryFolder()
+    {
+        var executable = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+        var appDirectory = AppContext.BaseDirectory;
+        if (File.Exists(Path.Combine(appDirectory, executable)))
+            return appDirectory;
+        var pathDirectories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(directory => directory.Trim('"'));
+        foreach (var directory in pathDirectories)
+        {
+            if (File.Exists(Path.Combine(directory, executable)))
+                return directory;
+        }
+        foreach (var directory in new[] { "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin" })
+        {
+            if (File.Exists(Path.Combine(directory, executable)))
+                return directory;
+        }
+        return null;
     }
 }

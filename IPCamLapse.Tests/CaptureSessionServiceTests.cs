@@ -2,8 +2,6 @@ using System.Text.Json;
 using IPCamLapse.Models;
 using IPCamLapse.Services;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace IPCamLapse.Tests;
@@ -95,7 +93,7 @@ public sealed class CaptureSessionServiceTests : IDisposable
     private CaptureSessionService CreateService()
         => new(
             NullLogger<CaptureSessionService>.Instance,
-            new TestWebHostEnvironment(_root),
+            new TestDataPathProvider(_root),
             _dataProtectionProvider);
 
     public void Dispose()
@@ -104,22 +102,20 @@ public sealed class CaptureSessionServiceTests : IDisposable
             Directory.Delete(_root, recursive: true);
     }
 
-    private sealed class TestWebHostEnvironment : IWebHostEnvironment
+    private sealed class TestDataPathProvider : IDataPathProvider
     {
-        public TestWebHostEnvironment(string contentRootPath)
+        public TestDataPathProvider(string root)
         {
-            ContentRootPath = contentRootPath;
-            WebRootPath = Path.Combine(contentRootPath, "wwwroot");
-            ContentRootFileProvider = new PhysicalFileProvider(contentRootPath);
-            Directory.CreateDirectory(WebRootPath);
-            WebRootFileProvider = new PhysicalFileProvider(WebRootPath);
+            RootPath = Path.Combine(root, "data");
+            SessionsPath = Path.Combine(RootPath, "sessions");
+            ProfilesPath = Path.Combine(RootPath, "camera-profiles.json");
+            SettingsPath = Path.Combine(RootPath, "settings.json");
+            Directory.CreateDirectory(SessionsPath);
         }
 
-        public string ApplicationName { get; set; } = "IPCamLapse.Tests";
-        public IFileProvider WebRootFileProvider { get; set; }
-        public string WebRootPath { get; set; }
-        public string EnvironmentName { get; set; } = "Development";
-        public string ContentRootPath { get; set; }
-        public IFileProvider ContentRootFileProvider { get; set; }
+        public string RootPath { get; }
+        public string SessionsPath { get; }
+        public string ProfilesPath { get; }
+        public string SettingsPath { get; }
     }
 }
