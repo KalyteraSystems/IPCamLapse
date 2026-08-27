@@ -4,9 +4,21 @@
     ViewData["Title"] = "System check";
 }
 
-<div class="mb-4">
-    <h1 class="h2 mb-1">System check</h1>
-    <p class="text-muted mb-0">IPCamLapse checks these requirements on first run and whenever this page opens.</p>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">Operations / readiness</span>
+        <h1 class="page-title">System check</h1>
+        <p class="page-lede">Verify rendering, storage access, and available disk before a long capture begins.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-page="/System" class="btn btn-outline-secondary"><i class="bi bi-arrow-clockwise me-2" aria-hidden="true"></i>Run again</a>
+    </div>
+</header>
+
+<div class="system-summary mb-4">
+    <i class="bi @(Model.Health.Healthy ? "bi-check-circle-fill text-success" : "bi-exclamation-triangle-fill text-danger")" aria-hidden="true"></i>
+    <strong>@(Model.Health.Healthy ? "Ready to capture" : "Attention required")</strong>
+    <span class="text-muted">@Model.Health.Checks.Count(check => check.Healthy) of @Model.Health.Checks.Count checks passed</span>
 </div>
 
 <div class="card shadow-sm mb-4">
@@ -35,4 +47,4 @@
     </div>
 }
 
-<a asp-page="/Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Run again</a>
+<a asp-page="/Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2" aria-hidden="true"></i>Back to sessions</a>

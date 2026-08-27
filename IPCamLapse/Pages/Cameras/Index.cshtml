@@ -4,13 +4,16 @@
     ViewData["Title"] = "Cameras";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h2 mb-1">Cameras</h1>
-        <p class="text-muted mb-0">Save connection details once and reuse them in any session.</p>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">Sources / camera profiles</span>
+        <h1 class="page-title">Cameras</h1>
+        <p class="page-lede">Save a camera once, protect its credentials locally, and reuse it across capture sessions.</p>
     </div>
-    <a asp-page="/Cameras/Edit" class="btn btn-primary"><i class="bi bi-plus-circle me-2"></i>Add camera</a>
-</div>
+    <div class="page-actions">
+        <a asp-page="/Cameras/Edit" class="btn btn-primary btn-lg"><i class="bi bi-plus-square me-2" aria-hidden="true"></i>Add camera</a>
+    </div>
+</header>
 
 @if (TempData["Error"] is string error)
 {
@@ -24,11 +27,11 @@
             <article class="card h-100 shadow-sm camera-card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
-                        <div class="camera-icon"><i class="bi @(profile.IsDemo ? "bi-stars" : "bi-camera")"></i></div>
+                        <div class="camera-icon"><i class="bi @(profile.IsDemo ? "bi-stars" : "bi-camera-video")" aria-hidden="true"></i></div>
                         <div>
                             @if (profile.IsDemo)
                             {
-                                <span class="badge bg-info text-dark">Built in</span>
+                                <span class="badge bg-info text-dark">Built-in demo</span>
                             }
                             else if (Model.ProfilesInUse.Contains(profile.Id))
                             {
@@ -36,7 +39,8 @@
                             }
                         </div>
                     </div>
-                    <h2 class="h5">@profile.Name</h2>
+                    <span class="section-kicker">@(profile.IsDemo ? "Simulated source" : "Saved profile")</span>
+                    <h2 class="h4">@profile.Name</h2>
                     <p class="small text-muted text-break mb-2">@(profile.IsDemo ? "Simulated daylight scene" : profile.Url)</p>
                     @if (!profile.IsDemo)
                     {
@@ -44,7 +48,7 @@
                     }
                 </div>
                 <div class="card-footer bg-transparent d-flex gap-2">
-                    <a asp-page="/Sessions/Create" class="btn btn-sm btn-outline-primary flex-fill">New session</a>
+                    <a asp-page="/Sessions/Create" class="btn btn-sm btn-outline-primary flex-fill">Use camera <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
                     @if (!profile.IsDemo)
                     {
                         <a asp-page="/Cameras/Edit" asp-route-id="@profile.Id" class="btn btn-sm btn-outline-secondary">Edit</a>

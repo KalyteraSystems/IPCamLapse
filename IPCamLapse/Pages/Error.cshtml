@@ -4,10 +4,16 @@
     ViewData["Title"] = "Error";
 }
 
-<h1 class="h3 text-danger">Something went wrong</h1>
-<p>Try again or check the application logs.</p>
-
-@if (Model.ShowRequestId)
-{
-    <p class="small text-muted">Request ID: <code>@Model.RequestId</code></p>
-}
+<section class="empty-state">
+    <div class="empty-state-inner">
+        <span class="empty-state-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+        <span class="section-kicker">Application error</span>
+        <h1 class="page-title">Something went wrong</h1>
+        <p>Try the action again. If it keeps failing, check the application logs for the underlying error.</p>
+        @if (Model.ShowRequestId)
+        {
+            <p class="small text-muted">Request ID: <code>@Model.RequestId</code></p>
+        }
+        <a asp-page="/Index" class="btn btn-primary mt-2">Back to sessions</a>
+    </div>
+</section>

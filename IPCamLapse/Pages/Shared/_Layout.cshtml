@@ -1,6 +1,14 @@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     var antiforgeryTokens = Antiforgery.GetAndStoreTokens(Context);
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? string.Empty;
+    var title = ViewData["Title"]?.ToString() ?? "IPCamLapse";
+    var sessionsActive = currentPage == "/Index" || currentPage.StartsWith("/Sessions/Details", StringComparison.Ordinal);
+    var createActive = currentPage.StartsWith("/Sessions/Create", StringComparison.Ordinal);
+    var camerasActive = currentPage.StartsWith("/Cameras", StringComparison.Ordinal);
+    var storageActive = currentPage == "/Settings";
+    var systemActive = currentPage == "/System";
+    var privacyActive = currentPage == "/Privacy";
 }
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
@@ -8,106 +16,108 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="@antiforgeryTokens.RequestToken" />
-    <title>@ViewData["Title"] - IPCamLapse</title>
+    <meta name="theme-color" content="#171815" />
+    <title>@title · IPCamLapse by Kalytera</title>
+    <link rel="icon" type="image/svg+xml" href="~/img/favicon.svg" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body class="has-sidebar">
-<nav class="sidebar" id="sidebar">
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<aside class="sidebar" id="sidebar" aria-label="Primary navigation">
     <div class="sidebar-header">
-        <a href="/" class="sidebar-brand">
-            <i class="bi bi-camera-video-fill me-2"></i>
-            <span>IPCamLapse</span>
+        <a asp-page="/Index" class="sidebar-brand" aria-label="IPCamLapse home">
+            <img src="~/img/kalytera-mark-reverse.svg" alt="" width="42" height="36" />
+            <span class="sidebar-brand-copy">
+                <span class="company-wordmark"><strong>Kalytera</strong><span>Systems</span></span>
+                <span class="product-wordmark">IPCamLapse</span>
+            </span>
         </a>
-        <button class="btn btn-sm sidebar-toggle d-lg-none" onclick="toggleSidebar()" aria-label="Close navigation">
-            <i class="bi bi-x-lg"></i>
+        <button type="button" class="sidebar-toggle d-lg-none" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Close navigation">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     </div>
-    <div class="sidebar-body">
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" || ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Sessions/Details") == true ? "active" : "")" asp-page="/Index">
-                    <i class="bi bi-grid me-2"></i>Sessions
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Sessions/Create") == true ? "active" : "")" asp-page="/Sessions/Create">
-                    <i class="bi bi-plus-circle me-2"></i>New Session
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Cameras") == true ? "active" : "")" asp-page="/Cameras/Index">
-                    <i class="bi bi-camera me-2"></i>Cameras
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Settings" ? "active" : "")" asp-page="/Settings">
-                    <i class="bi bi-device-hdd me-2"></i>Storage
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/System" ? "active" : "")" asp-page="/System">
-                    <i class="bi bi-activity me-2"></i>System check
-                </a>
-            </li>
-        </ul>
-        <ul class="nav flex-column mt-3">
-            <li class="nav-item">
-                <a class="nav-link @(ViewContext.RouteData.Values["page"]?.ToString() == "/Privacy" ? "active" : "")" asp-page="/Privacy">
-                    <i class="bi bi-shield-lock me-2"></i>Privacy
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="https://github.com/KalyteraSystems/IPCamLapse" target="_blank" rel="noopener noreferrer">
-                    <i class="bi bi-github me-2"></i>GitHub
-                </a>
-            </li>
-        </ul>
-    </div>
-    <div class="sidebar-footer">
-        <small class="text-muted"><i class="bi bi-camera-video me-1"></i>IPCamLapse v0.2.0</small>
-    </div>
-</nav>
 
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar-body">
+        <div class="nav-section">
+            <p class="nav-label">Capture</p>
+            <nav class="nav flex-column">
+                <a class="nav-link @(sessionsActive ? "active" : "")" asp-page="/Index" aria-current="@(sessionsActive ? "page" : null)">
+                    <i class="bi bi-grid-1x2" aria-hidden="true"></i><span>Sessions</span>
+                </a>
+                <a class="nav-link @(createActive ? "active" : "")" asp-page="/Sessions/Create" aria-current="@(createActive ? "page" : null)">
+                    <i class="bi bi-plus-square" aria-hidden="true"></i><span>New session</span>
+                </a>
+                <a class="nav-link @(camerasActive ? "active" : "")" asp-page="/Cameras/Index" aria-current="@(camerasActive ? "page" : null)">
+                    <i class="bi bi-camera-video" aria-hidden="true"></i><span>Cameras</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-label">Operations</p>
+            <nav class="nav flex-column">
+                <a class="nav-link @(storageActive ? "active" : "")" asp-page="/Settings" aria-current="@(storageActive ? "page" : null)">
+                    <i class="bi bi-device-hdd" aria-hidden="true"></i><span>Storage</span>
+                </a>
+                <a class="nav-link @(systemActive ? "active" : "")" asp-page="/System" aria-current="@(systemActive ? "page" : null)">
+                    <i class="bi bi-activity" aria-hidden="true"></i><span>System check</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="nav-section nav-section-secondary">
+            <p class="nav-label">About</p>
+            <nav class="nav flex-column">
+                <a class="nav-link @(privacyActive ? "active" : "")" asp-page="/Privacy" aria-current="@(privacyActive ? "page" : null)">
+                    <i class="bi bi-shield-check" aria-hidden="true"></i><span>Privacy</span>
+                </a>
+                <a class="nav-link" href="https://github.com/KalyteraSystems/IPCamLapse" target="_blank" rel="noopener noreferrer">
+                    <i class="bi bi-github" aria-hidden="true"></i><span>Source code</span><i class="bi bi-arrow-up-right nav-external" aria-hidden="true"></i>
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="local-indicator"><span aria-hidden="true"></span>Local workspace</div>
+        <div class="sidebar-meta"><span>SELF-HOSTED</span><span>v0.3.0</span></div>
+    </div>
+</aside>
+
+<button type="button" class="sidebar-overlay" id="sidebarOverlay" data-sidebar-toggle aria-label="Close navigation"></button>
 
 <div class="main-wrapper">
     <header class="topbar">
-        <button class="btn btn-sm me-3 d-lg-none" onclick="toggleSidebar()" aria-label="Open navigation">
-            <i class="bi bi-list fs-5"></i>
+        <button type="button" class="mobile-menu-button d-lg-none" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation">
+            <i class="bi bi-list" aria-hidden="true"></i>
         </button>
-        <nav aria-label="breadcrumb" class="d-none d-sm-block flex-fill">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item">
-                    <a asp-page="/Index"><i class="bi bi-house"></i></a>
-                </li>
-                @if (ViewData["Title"]?.ToString() != "Dashboard")
-                {
-                    <li class="breadcrumb-item active">@ViewData["Title"]</li>
-                }
-            </ol>
-        </nav>
+        <div class="topbar-context">
+            <span class="topbar-eyebrow">IPCamLapse / capture studio</span>
+            <span class="topbar-title">@title</span>
+        </div>
+        <div class="topbar-actions">
+            <span class="topbar-local d-none d-sm-inline-flex"><span aria-hidden="true"></span>Local only</span>
+            <a href="https://kalyterasystems.com" class="topbar-company d-none d-md-inline-flex" target="_blank" rel="noopener noreferrer">
+                Kalytera Systems <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+            </a>
+        </div>
     </header>
 
-    <main class="page-content">
-        @RenderBody()
+    <main class="page-content" id="main-content" tabindex="-1">
+        <div class="page-shell">
+            @RenderBody()
+        </div>
     </main>
 </div>
+
+<div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
 
 <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
-
-<script>
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-        sidebar.classList.toggle('show');
-        overlay.classList.toggle('show');
-    }
-</script>
-
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

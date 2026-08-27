@@ -4,12 +4,19 @@
     ViewData["Title"] = Model.IsNew ? "Add camera" : "Edit camera";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">@ViewData["Title"]</h1>
-    <a asp-page="/Cameras/Index" class="btn btn-outline-secondary">Back</a>
-</div>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">Sources / camera profile</span>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-lede">Connection details stay on this installation and can be reused without re-entering credentials.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-page="/Cameras/Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-2" aria-hidden="true"></i>All cameras</a>
+    </div>
+</header>
 
 <form method="post" class="card shadow-sm camera-form">
+    <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">01</span>Connection details</h2></div>
     <div class="card-body p-4">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
         <input asp-for="Profile.Id" type="hidden" />
@@ -54,7 +61,7 @@
         </div>
     </div>
     <div class="card-footer bg-transparent p-4 d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Save camera</button>
+        <button type="submit" class="btn btn-primary">Save camera <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></button>
         <a asp-page="/Cameras/Index" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>

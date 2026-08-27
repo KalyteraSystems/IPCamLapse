@@ -5,22 +5,28 @@
     ViewData["Title"] = "New session";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h2 mb-0">New session</h1>
-    <a asp-page="/Cameras/Index" class="btn btn-outline-secondary">Cameras</a>
-</div>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">Capture setup / new session</span>
+        <h1 class="page-title">Build a time-lapse</h1>
+        <p class="page-lede">Choose a camera, set the capture window, and preview the expected output before recording.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-page="/Cameras/Index" class="btn btn-outline-secondary"><i class="bi bi-camera-video me-2" aria-hidden="true"></i>Manage cameras</a>
+    </div>
+</header>
 
 <form method="post" id="createForm">
     <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
 
     <div class="card shadow-sm mb-4">
-        <div class="card-header"><h2 class="h5 mb-0">Presets</h2></div>
+        <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">00</span>Quick start</h2></div>
         <div class="card-body">
             <div class="row g-2" id="presets-grid">
                 @foreach (var preset in Model.Presets)
                 {
-                    <div class="col-md-4 col-sm-6">
-                        <button type="button" class="preset-card card h-100 w-100 border-2 text-start"
+                    <div class="col-6 col-md-4">
+                        <button type="button" class="preset-card card h-100 w-100 text-start" aria-pressed="false"
                                 onclick="applyPreset(@preset.CaptureIntervalSeconds, @preset.CaptureDurationSeconds, @preset.VideoTargetDurationSeconds, '@preset.Name', this)">
                             <span class="card-body p-3">
                                 <span class="d-block fw-semibold">@preset.Name</span>
@@ -36,7 +42,7 @@
     <div class="row g-4">
         <div class="col-xl-8">
             <div class="card shadow-sm mb-4">
-                <div class="card-header"><h2 class="h5 mb-0">Camera</h2></div>
+                <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">01</span>Camera source</h2></div>
                 <div class="card-body">
                     <div class="mb-3">
                         <label asp-for="Session.Name" class="form-label fw-semibold">Name</label>
@@ -47,7 +53,7 @@
                     <div class="mb-3">
                         <label asp-for="Session.Configuration.CameraProfileId" class="form-label fw-semibold">Camera</label>
                         <select asp-for="Session.Configuration.CameraProfileId" class="form-select" id="profileInput" onchange="toggleCameraSource()">
-                            <option value="">One-time camera</option>
+                            <option value="">One-time camera details</option>
                             @foreach (var profile in Model.Profiles)
                             {
                                 <option value="@profile.Id">@profile.Name</option>
@@ -80,14 +86,14 @@
                     </div>
 
                     <button type="button" class="btn btn-outline-primary" onclick="testCamera()" id="cameraTestButton">
-                        <i class="bi bi-wifi me-1"></i>Test
+                        <i class="bi bi-wifi me-1" aria-hidden="true"></i>Test connection
                     </button>
                     <div id="camera-test-result" class="mt-3 d-none" role="status"></div>
                 </div>
             </div>
 
             <div class="card shadow-sm mb-4">
-                <div class="card-header"><h2 class="h5 mb-0">Capture</h2></div>
+                <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">02</span>Capture timing</h2></div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -118,7 +124,7 @@
             </div>
 
             <div class="card shadow-sm mb-4">
-                <div class="card-header"><h2 class="h5 mb-0">Schedule</h2></div>
+                <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">03</span>Schedule</h2></div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -154,31 +160,35 @@
             </div>
 
             <div class="card shadow-sm mb-4">
-                <div class="card-header"><h2 class="h5 mb-0">Video</h2></div>
+                <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">04</span>Video output</h2></div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label asp-for="Session.Configuration.Video.Width" class="form-label">Width</label>
                             <input asp-for="Session.Configuration.Video.Width" type="number" min="320" max="3840" step="2" class="form-control" />
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label asp-for="Session.Configuration.Video.Height" class="form-label">Height</label>
                             <input asp-for="Session.Configuration.Video.Height" type="number" min="240" max="2160" step="2" class="form-control" />
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label asp-for="Session.Configuration.Video.FitMode" class="form-label">Fit</label>
                             <select asp-for="Session.Configuration.Video.FitMode" class="form-select" asp-items="Html.GetEnumSelectList<VideoFitMode>()"></select>
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label asp-for="Session.Configuration.Video.FrameRate" class="form-label">FPS</label>
                             <input asp-for="Session.Configuration.Video.FrameRate" type="number" min="0" max="60" class="form-control" />
                             <div class="form-text">0 = automatic</div>
                         </div>
-                        <div class="col-sm-4">
-                            <label asp-for="Session.Configuration.Video.QualityCrf" class="form-label">Quality</label>
-                            <input asp-for="Session.Configuration.Video.QualityCrf" type="range" min="18" max="35" class="form-range" />
+                        <div class="col-sm-6">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label asp-for="Session.Configuration.Video.QualityCrf" class="form-label">Quality</label>
+                                <output for="qualityInput" id="qualityValue" class="range-value">@Model.Session.Configuration.Video.QualityCrf CRF</output>
+                            </div>
+                            <input asp-for="Session.Configuration.Video.QualityCrf" type="range" min="18" max="35" class="form-range" id="qualityInput" oninput="updateQualityLabel()" />
+                            <div class="range-legend"><span>Higher quality</span><span>Smaller file</span></div>
                         </div>
-                        <div class="col-sm-4 d-flex align-items-end pb-2">
+                        <div class="col-sm-6 d-flex align-items-end pb-2">
                             <div class="form-check">
                                 <input asp-for="Session.Configuration.Video.TimestampOverlay" class="form-check-input" />
                                 <label asp-for="Session.Configuration.Video.TimestampOverlay" class="form-check-label">Time overlay</label>
@@ -189,7 +199,7 @@
             </div>
 
             <details class="card shadow-sm mb-4">
-                <summary class="card-header fw-semibold">Failure handling</summary>
+                <summary class="card-header fw-semibold"><span class="form-section-number">05</span>Failure handling</summary>
                 <div class="card-body row g-3">
                     <div class="col-md-4">
                         <label asp-for="Session.Configuration.MaxCaptureRetries" class="form-label">Retries</label>
@@ -211,9 +221,9 @@
         </div>
 
         <div class="col-xl-4">
-            <div class="card shadow-sm mb-4 sticky-xl-top" style="top: 72px;">
+            <div class="card shadow-sm mb-4 sticky-xl-top preview-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="h5 mb-0">Preview</h2>
+                    <h2 class="h5 mb-0">Camera preview</h2>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadPreview()" aria-label="Refresh preview">
                         <i class="bi bi-arrow-clockwise"></i>
                     </button>
@@ -223,7 +233,7 @@
                         <i class="bi bi-camera display-4"></i>
                         <p class="small mt-2 mb-0">No preview</p>
                     </div>
-                    <img id="preview-img" src="" alt="Camera preview" class="img-fluid rounded d-none w-100" />
+                    <img id="preview-img" src="" alt="Camera preview" class="img-fluid d-none w-100" />
                 </div>
                 <div class="card-footer">
                     <dl class="row small mb-0">
@@ -243,8 +253,8 @@
     </div>
 
     <input asp-for="Session.Configuration.PresetName" type="hidden" id="presetNameInput" />
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-lg px-5">Create</button>
+    <div class="d-flex gap-2 flex-wrap form-actions">
+        <button type="submit" class="btn btn-primary btn-lg px-5">Create session <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></button>
         <a asp-page="/Index" class="btn btn-outline-secondary btn-lg">Cancel</a>
     </div>
 </form>
@@ -283,8 +293,12 @@
             document.getElementById('durationInput').value = duration;
             document.getElementById('videoDurationInput').value = videoDuration;
             document.getElementById('presetNameInput').value = name;
-            document.querySelectorAll('.preset-card').forEach(item => item.classList.remove('border-primary'));
+            document.querySelectorAll('.preset-card').forEach(item => {
+                item.classList.remove('border-primary');
+                item.setAttribute('aria-pressed', 'false');
+            });
             card.classList.add('border-primary');
+            card.setAttribute('aria-pressed', 'true');
             updateEstimate();
         }
 
@@ -304,6 +318,10 @@
             bar.className = 'progress-bar ' + (percent >= 100 ? 'bg-danger' : percent >= 75 ? 'bg-warning' : 'bg-primary');
         }
 
+        function updateQualityLabel() {
+            document.getElementById('qualityValue').value = document.getElementById('qualityInput').value + ' CRF';
+        }
+
         function formatBytes(bytes) {
             if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(1) + ' GB';
             return (bytes / 1024 ** 2).toFixed(1) + ' MB';
@@ -311,8 +329,11 @@
 
         async function testCamera() {
             const result = document.getElementById('camera-test-result');
+            const button = document.getElementById('cameraTestButton');
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Testing';
             result.className = 'mt-3 alert alert-info';
-            result.textContent = 'Testing...';
+            result.textContent = 'Requesting a snapshot from the camera.';
             try {
                 const response = await window.ipCamLapseFetch('/api/camera/test', {
                     method: 'POST',
@@ -327,6 +348,9 @@
             } catch (error) {
                 result.className = 'mt-3 alert alert-danger';
                 result.textContent = error.message || 'Connection failed';
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-wifi me-1" aria-hidden="true"></i>Test connection';
             }
         }
 
@@ -337,7 +361,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(cameraRequest())
                 });
-                if (!response.ok) return;
+                if (!response.ok) throw new Error('Preview could not be loaded. Test the connection for details.');
                 const blob = await response.blob();
                 const nextUrl = URL.createObjectURL(blob);
                 const image = document.getElementById('preview-img');
@@ -347,12 +371,15 @@
                 image.classList.remove('d-none');
                 document.getElementById('preview-container').classList.add('d-none');
                 if (previousUrl) URL.revokeObjectURL(previousUrl);
-            } catch { }
+            } catch (error) {
+                window.ipCamLapseNotify(error.message || 'Preview could not be loaded.');
+            }
         }
 
         toggleCameraSource();
         toggleSchedule();
         updateEstimate();
+        updateQualityLabel();
         window.addEventListener('beforeunload', () => {
             if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
         });

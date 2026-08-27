@@ -3,15 +3,24 @@
 @{
     ViewData["Title"] = "Privacy";
 }
-<h1>@ViewData["Title"]</h1>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">About / data handling</span>
+        <h1 class="page-title">Privacy</h1>
+        <p class="page-lede">Your camera data remains under your control.</p>
+    </div>
+</header>
 
-<p>IPCamLapse has no analytics, advertising, telemetry, or cloud storage.</p>
+<article class="prose">
+    <span class="section-kicker">Local by design</span>
+    <h2 class="h3 mt-0">No analytics, advertising, telemetry, or cloud storage.</h2>
 
-<h2 class="h4 mt-4">Local data</h2>
-<p>Settings, frames, and videos are stored in <code>data/sessions</code>. Camera passwords are protected at rest with ASP.NET Core Data Protection.</p>
+    <h2 class="h4">Local data</h2>
+    <p>Settings, frames, and videos are stored in <code>data/sessions</code>. Camera passwords are protected at rest with ASP.NET Core Data Protection.</p>
 
-<h2 class="h4 mt-4">Network</h2>
-<p>The app connects to the camera endpoints you configure. It uses an anti-forgery cookie, not tracking cookies.</p>
+    <h2 class="h4">Network</h2>
+    <p>The app connects only to the camera endpoints you configure. It uses an anti-forgery cookie, not tracking cookies.</p>
 
-<h2 class="h4 mt-4">Deletion</h2>
-<p>Deleting a session removes its app-managed settings, frames, and videos. External backups may retain copies.</p>
+    <h2 class="h4">Deletion</h2>
+    <p>Deleting a session removes its app-managed settings, frames, and videos. External backups may retain copies.</p>
+</article>

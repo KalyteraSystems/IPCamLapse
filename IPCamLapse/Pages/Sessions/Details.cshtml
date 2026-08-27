@@ -12,34 +12,35 @@
     return;
 }
 
-<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <h1 class="h2 mb-0">@Model.Session.Name</h1>
-            <span class="badge @GetStatusBadgeClass(Model.Session.Status) fs-6" id="status-badge">@Model.Session.Status</span>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">Capture session / live workspace</span>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <h1 class="page-title">@Model.Session.Name</h1>
+            <span class="badge @GetStatusBadgeClass(Model.Session.Status)" id="status-badge">@Model.Session.Status</span>
         </div>
-        <p class="text-muted mb-0">@Model.CameraName · @FormatBytes(Model.SessionBytes)</p>
+        <p class="page-lede">@Model.CameraName · @FormatBytes(Model.SessionBytes) captured</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap" id="session-actions">
+    <div class="page-actions" id="session-actions">
         @if (Model.Session.Status is SessionStatus.Ready or SessionStatus.Paused or SessionStatus.Failed)
         {
-            <button class="btn btn-success" onclick="runSessionAction('start', event)"><i class="bi bi-play-fill me-1"></i>Start</button>
+            <button type="button" class="btn btn-success" onclick="runSessionAction('start', event)"><i class="bi bi-play-fill me-1" aria-hidden="true"></i>Start</button>
         }
         @if (Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled or SessionStatus.Rendering)
         {
-            <button class="btn btn-warning" onclick="runSessionAction('pause', event)"><i class="bi bi-pause-fill me-1"></i>Pause</button>
+            <button type="button" class="btn btn-warning" onclick="runSessionAction('pause', event)"><i class="bi bi-pause-fill me-1" aria-hidden="true"></i>Pause</button>
         }
         @if (Model.Session.Status is SessionStatus.Capturing or SessionStatus.Paused or SessionStatus.Scheduled)
         {
-            <button class="btn btn-outline-danger" onclick="cancelSession()"><i class="bi bi-stop-fill me-1"></i>Cancel</button>
+            <button type="button" class="btn btn-outline-danger" onclick="cancelSession()"><i class="bi bi-stop-fill me-1" aria-hidden="true"></i>Cancel</button>
         }
         @if (Model.Session.VideoPath is not null || Model.Session.HasPartialVideo)
         {
-            <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-primary"><i class="bi bi-download me-1"></i>Video</a>
+            <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-primary"><i class="bi bi-download me-1" aria-hidden="true"></i>Download video</a>
         }
-        <button class="btn btn-outline-danger" onclick="deleteSession()" aria-label="Delete session"><i class="bi bi-trash"></i></button>
+        <button type="button" class="btn btn-outline-danger" onclick="deleteSession()" aria-label="Delete session"><i class="bi bi-trash" aria-hidden="true"></i></button>
     </div>
-</div>
+</header>
 
 @if (Model.Session.Status == SessionStatus.Rendering)
 {
@@ -53,25 +54,30 @@
     <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>@Model.Session.ErrorMessage</div>
 }
 
-<div class="card shadow-sm mb-4">
+<section class="card shadow-sm mb-4 capture-progress-card">
     <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2 class="h5 mb-0">Capture progress</h2>
+            <h2 class="h5 mb-0"><span class="form-section-number">LIVE</span>Capture progress</h2>
             <strong id="progress-label">@Model.Session.GetProgressPercent(DateTime.UtcNow).ToString("F1")%</strong>
         </div>
         <div class="progress mb-3" style="height: 12px;">
             <div class="progress-bar @(Model.Session.Status == SessionStatus.Capturing ? "progress-bar-striped progress-bar-animated" : "")"
                  id="main-progress"
-                 style="width: @Model.Session.GetProgressPercent(DateTime.UtcNow).ToString("F1")%"
+                 style="width: @FormatPercent(Model.Session.GetProgressPercent(DateTime.UtcNow))%"
                  role="progressbar"
-                 aria-valuenow="@Model.Session.GetProgressPercent(DateTime.UtcNow).ToString("F1")"
+                 aria-valuenow="@FormatPercent(Model.Session.GetProgressPercent(DateTime.UtcNow))"
                  aria-valuemin="0"
                  aria-valuemax="100"></div>
         </div>
         <div class="row g-3 session-stats">
             <div class="col-6 col-md-3"><span class="text-muted">Frames</span><strong id="frames-captured">@Model.Session.CapturedFrameCount</strong></div>
             <div class="col-6 col-md-3"><span class="text-muted">Active time</span><strong id="active-time">@FormatDuration(Model.Session.GetActiveCaptureSeconds(DateTime.UtcNow))</strong></div>
-            <div class="col-6 col-md-3"><span class="text-muted">Next frame</span><strong id="next-capture">@(Model.Session.NextCaptureAt.HasValue ? Model.Session.NextCaptureAt.Value.ToLocalTime().ToString("HH:mm:ss") : "—")</strong></div>
+            <div class="col-6 col-md-3">
+                <span class="text-muted">@(Model.Session.Status is SessionStatus.Completed or SessionStatus.Failed or SessionStatus.Cancelled ? "Finished" : "Next frame")</span>
+                <strong id="next-capture">@(Model.Session.Status is SessionStatus.Completed or SessionStatus.Failed or SessionStatus.Cancelled
+                    ? Model.Session.CompletedAt?.ToLocalTime().ToString("HH:mm:ss") ?? "—"
+                    : Model.Session.NextCaptureAt?.ToLocalTime().ToString("HH:mm:ss") ?? "—")</strong>
+            </div>
             <div class="col-6 col-md-3"><span class="text-muted">Failures</span><strong id="failure-count" class="@(Model.Session.ConsecutiveCaptureFailures > 0 ? "text-danger" : "")">@Model.Session.ConsecutiveCaptureFailures consecutive</strong></div>
         </div>
         @if (Model.Session.Status == SessionStatus.Scheduled && Model.Session.ScheduledFor.HasValue)
@@ -80,24 +86,24 @@
         }
         <div class="small text-danger mt-3 @(string.IsNullOrWhiteSpace(Model.Session.LastCaptureError) ? "d-none" : "")" id="capture-diagnostic">@Model.Session.LastCaptureError</div>
     </div>
-</div>
+</section>
 
 <div class="row g-4">
     <div class="col-xl-8">
         <section class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0">Latest frame</h2>
-                <button class="btn btn-sm btn-outline-secondary" onclick="refreshPreview()" aria-label="Refresh latest frame"><i class="bi bi-arrow-clockwise"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshPreview()" aria-label="Refresh latest frame"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
             </div>
             <div class="card-body p-2 preview-stage">
                 @if (Model.HasPreview)
                 {
-                    <img src="/api/sessions/@Model.Session.Id/preview?t=@DateTime.UtcNow.Ticks" id="preview-img" alt="Latest captured frame" class="img-fluid rounded w-100" />
+                    <img src="/api/sessions/@Model.Session.Id/preview?t=@DateTime.UtcNow.Ticks" id="preview-img" alt="Latest captured frame" class="img-fluid w-100" />
                 }
                 else
                 {
                     <div class="text-center py-5 text-muted" id="no-preview"><i class="bi bi-camera display-3"></i><p class="mt-2 mb-0">Waiting for the first frame</p></div>
-                    <img id="preview-img" src="" alt="Latest captured frame" class="img-fluid rounded w-100 d-none" />
+                    <img id="preview-img" src="" alt="Latest captured frame" class="img-fluid w-100 d-none" />
                 }
             </div>
         </section>
@@ -110,7 +116,7 @@
                     <a href="/api/sessions/@Model.Session.Id/video" download class="btn btn-sm btn-primary"><i class="bi bi-download me-1"></i>Download</a>
                 </div>
                 <div class="card-body p-2">
-                    <video id="video-player" controls preload="metadata" class="w-100 rounded">
+                    <video id="video-player" controls preload="metadata" class="w-100">
                         <source src="/api/sessions/@Model.Session.Id/video?t=@DateTime.UtcNow.Ticks" type="video/mp4" />
                     </video>
                 </div>
@@ -143,7 +149,7 @@
                 </div>
                 @if (Model.Frames.Items.Count < Model.Frames.Total)
                 {
-                    <button class="btn btn-outline-secondary w-100 mt-3" id="load-more" onclick="loadMoreFrames()">Load more</button>
+                    <button type="button" class="btn btn-outline-secondary w-100 mt-3" id="load-more" onclick="loadMoreFrames()">Load more</button>
                 }
             </div>
         </section>
@@ -154,19 +160,19 @@
                 <div class="card-header"><h2 class="h5 mb-0">Render video</h2></div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label class="form-label" for="range-start">First frame</label>
                             <input id="range-start" type="number" class="form-control" min="1" max="@Model.Session.CapturedFrameCount" value="@(Model.Session.RenderRangeStart ?? 1)" />
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label class="form-label" for="range-end">Last frame</label>
                             <input id="range-end" type="number" class="form-control" min="1" max="@Model.Session.CapturedFrameCount" value="@(Model.Session.RenderRangeEnd ?? Model.Session.CapturedFrameCount)" />
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label class="form-label" for="video-width">Width</label>
                             <input id="video-width" type="number" class="form-control" min="320" max="3840" step="2" value="@Model.Session.Configuration.Video.Width" />
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <label class="form-label" for="video-height">Height</label>
                             <input id="video-height" type="number" class="form-control" min="240" max="2160" step="2" value="@Model.Session.Configuration.Video.Height" />
                         </div>
@@ -197,7 +203,7 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-3 mt-4">
-                        <button class="btn btn-primary" id="render-button" onclick="renderVideo(event)" @(Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled or SessionStatus.Rendering ? "disabled" : null)>
+                        <button type="button" class="btn btn-primary" id="render-button" onclick="renderVideo(event)" @(Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled or SessionStatus.Rendering ? "disabled" : null)>
                             <i class="bi bi-film me-1"></i>@(Model.Session.VideoPath is null ? "Render" : "Regenerate")
                         </button>
                         <span class="small" id="render-result" role="status"></span>
@@ -207,7 +213,7 @@
         }
     </div>
 
-    <div class="col-xl-4">
+    <div class="col-xl-4 session-side-rail">
         <section class="card shadow-sm mb-4">
             <div class="card-header"><h2 class="h5 mb-0">Session details</h2></div>
             <div class="card-body">
@@ -280,7 +286,7 @@
                 await api(`/api/sessions/${sessionId}/${action}`, { method: 'POST' });
                 location.reload();
             } catch (error) {
-                alert(error.message);
+                window.ipCamLapseNotify(error.message);
                 button.disabled = false;
             }
         }
@@ -290,7 +296,7 @@
             try {
                 await api(`/api/sessions/${sessionId}/cancel`, { method: 'POST' });
                 location.reload();
-            } catch (error) { alert(error.message); }
+            } catch (error) { window.ipCamLapseNotify(error.message); }
         }
 
         async function deleteSession() {
@@ -298,7 +304,7 @@
             try {
                 await api(`/api/sessions/${sessionId}`, { method: 'DELETE' });
                 location.href = '/';
-            } catch (error) { alert(error.message); }
+            } catch (error) { window.ipCamLapseNotify(error.message); }
         }
 
         async function renderVideo(event) {
@@ -490,6 +496,8 @@
         if (bytes >= 1024L * 1024) return $"{bytes / 1024d / 1024d:F1} MB";
         return $"{bytes / 1024d:F0} KB";
     }
+
+    string FormatPercent(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
     string FormatDuration(double seconds)
     {

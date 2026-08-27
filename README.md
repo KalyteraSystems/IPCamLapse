@@ -1,6 +1,6 @@
 # IPCamLapse
 
-IPCamLapse turns IP camera snapshots into timelapse videos from a local web interface. It can also simulate a camera, so the entire capture-to-video workflow is available without hardware.
+IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) capture tool that turns IP camera snapshots into time-lapse videos from a local web interface. Its simulated camera makes the complete capture-to-video workflow available without hardware.
 
 ![IPCamLapse demo](docs/images/demo.gif)
 

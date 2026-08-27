@@ -5,12 +5,16 @@
     var storagePercent = Model.Storage.MaxBytes > 0
         ? Math.Clamp(Model.Storage.UsedBytes * 100d / Model.Storage.MaxBytes, 0, 100)
         : 0;
+    var storagePercentValue = storagePercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 }
 
-<div class="mb-4">
-    <h1 class="h2 mb-1">Storage</h1>
-    <p class="text-muted mb-0">Set a budget, disk reserve, and automatic retention period.</p>
-</div>
+<header class="page-header">
+    <div class="page-header-copy">
+        <span class="page-kicker">Operations / local storage</span>
+        <h1 class="page-title">Storage</h1>
+        <p class="page-lede">Control the capture budget, preserve working disk space, and automate retention.</p>
+    </div>
+</header>
 
 @if (TempData["Saved"] is true)
 {
@@ -24,6 +28,7 @@
 <div class="row g-4">
     <div class="col-lg-7">
         <form method="post" class="card shadow-sm">
+            <div class="card-header"><h2 class="h5 mb-0"><span class="form-section-number">01</span>Storage policy</h2></div>
             <div class="card-body p-4">
                 <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
                 <div class="row g-3">
@@ -62,19 +67,20 @@
                 </div>
             </div>
             <div class="card-footer bg-transparent p-4">
-                <button type="submit" class="btn btn-primary">Save settings</button>
+                <button type="submit" class="btn btn-primary">Save settings <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></button>
             </div>
         </form>
     </div>
     <div class="col-lg-5">
-        <div class="card shadow-sm mb-4">
+        <div class="card shadow-sm mb-4 storage-usage-card">
+            <div class="card-header"><h2 class="h5 mb-0">Current use</h2></div>
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between mb-2">
-                    <strong>Current use</strong>
+                    <strong>@storagePercent.ToString("F1")% used</strong>
                     <span>@FormatBytes(Model.Storage.UsedBytes) / @FormatBytes(Model.Storage.MaxBytes)</span>
                 </div>
                 <div class="progress mb-3" style="height: 10px;">
-                    <div class="progress-bar @(Model.Storage.IsLow ? "bg-danger" : "")" style="width: @storagePercent.ToString("F1")%"></div>
+                    <div class="progress-bar @(Model.Storage.IsLow ? "bg-danger" : "")" style="width: @storagePercentValue%" role="progressbar" aria-label="Storage used" aria-valuenow="@storagePercentValue" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
                 <dl class="row small mb-0">
                     <dt class="col-7 text-muted fw-normal">Drive space available</dt>
@@ -88,9 +94,9 @@
                 }
             </div>
         </div>
-        <form method="post" asp-page-handler="RunRetention" class="card shadow-sm">
+        <form method="post" asp-page-handler="RunRetention" class="card shadow-sm retention-card">
+            <div class="card-header"><h2 class="h5 mb-0">Retention cleanup</h2></div>
             <div class="card-body p-4">
-                <h2 class="h5">Retention cleanup</h2>
                 <p class="small text-muted">Remove finished sessions older than the current retention period now.</p>
                 <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Remove all expired sessions and their files?')">Run cleanup</button>
             </div>
