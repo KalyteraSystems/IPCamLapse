@@ -21,6 +21,8 @@ dotnet test --configuration Release --no-build
 
 The demo camera is the fastest way to exercise capture behavior locally. Component boundaries, state transitions, and the data layout are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+To exercise the production container locally, run `docker compose up --build` and open <http://127.0.0.1:5080>. Keep the loopback-only host port when testing access-control changes.
+
 Before opening a pull request, run:
 
 ```console
