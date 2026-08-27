@@ -75,4 +75,8 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" artifacts/* --verify-tag --generate-notes
+        run: >-
+          gh release create "${{ github.ref_name }}" artifacts/*
+          --repo "${{ github.repository }}"
+          --verify-tag
+          --generate-notes
