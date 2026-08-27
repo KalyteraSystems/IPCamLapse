@@ -93,7 +93,7 @@
         <section class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h2 class="h5 mb-0">Latest frame</h2>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshPreview()" aria-label="Refresh latest frame"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+                <button type="button" id="refresh-preview-btn" class="btn btn-sm btn-outline-secondary" onclick="refreshPreview()" aria-label="Refresh latest frame" title="Refresh latest frame (R)"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
             </div>
             <div class="card-body p-2 preview-stage">
                 @if (Model.HasPreview)
@@ -466,6 +466,18 @@
                 await connection.invoke('JoinSession', sessionId);
             } catch { }
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'r' && event.key !== 'R') return;
+            if (event.ctrlKey || event.metaKey || event.altKey) return;
+            const target = event.target;
+            const isTypingContext = target && (
+                target.isContentEditable ||
+                ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target.tagName)
+            );
+            if (isTypingContext) return;
+            refreshPreview();
+        });
 
         @if (Model.Session.Status is SessionStatus.Capturing or SessionStatus.Scheduled)
         {
