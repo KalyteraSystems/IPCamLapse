@@ -45,6 +45,18 @@ dotnet run --project IPCamLapse --urls http://127.0.0.1:5080
 
 Open <http://127.0.0.1:5080>. The built-in demo camera works immediately.
 
+## Run with Docker
+
+Docker images include FFmpeg and run as a non-root user. From the repository:
+
+```console
+docker compose up --build
+```
+
+Open <http://127.0.0.1:5080>. Captures, profiles, and settings are kept in the `ipcamlapse-data` volume. Tagged releases are also published as multi-architecture images at `ghcr.io/kalyterasystems/ipcamlapse`.
+
+The Compose file publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
+
 ## Configuration
 
 Environment variables use double underscores, such as `Storage__DataPath=/srv/ipcamlapse`.
@@ -52,6 +64,7 @@ Environment variables use double underscores, such as `Storage__DataPath=/srv/ip
 | Setting | Default | Purpose |
 |---|---:|---|
 | `Storage:DataPath` | `data` | Runtime data directory, relative to the application by default |
+| `LocalAccess:AllowPrivateNetworks` | `false` | Accept private bridge clients; intended for loopback-published containers |
 | `CameraAccess:AllowHostnames` | `false` | Allow DNS hostnames in camera URLs |
 | `CameraAccess:AllowPublicAddresses` | `false` | Allow public camera addresses |
 | `CameraAccess:MaxSnapshotBytes` | `20971520` | Maximum snapshot response size |
@@ -60,7 +73,7 @@ Storage limits, disk reserve, retention, and frame-size estimates can be changed
 
 ## Security
 
-- The web interface accepts loopback connections only and has no user authentication.
+- The web interface accepts loopback connections only by default and has no user authentication.
 - Camera URLs default to HTTP or HTTPS literal private, loopback, or link-local addresses.
 - TLS certificates are checked unless a camera profile explicitly disables validation.
 - Camera passwords are protected with ASP.NET Core Data Protection.
@@ -73,7 +86,7 @@ Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECU
 
 Runtime data is stored under the configured data path and excluded from Git. Existing v0.1 session JSON remains readable. A session interrupted by an application restart is restored as paused rather than silently resumed.
 
-See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries.
+See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries. Planned work is tracked in the [Roadmap](docs/ROADMAP.md).
 
 ## Development
 
@@ -85,7 +98,7 @@ dotnet format --verify-no-changes --no-restore
 dotnet list package --vulnerable --include-transitive
 ```
 
-CI runs on Windows and Ubuntu. The integration suite exercises demo capture → render → HTTP download. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and look for [`good first issue`](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue) tickets if you want a small starting point.
+CI runs on Windows and Ubuntu. The integration suite exercises demo capture → render → HTTP download. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and look for [`good first issue`](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue) tickets if you want a small starting point. Maintainer release steps are in [Releasing](docs/RELEASING.md).
 
 ## License
 

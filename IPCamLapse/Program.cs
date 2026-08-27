@@ -13,6 +13,10 @@ builder.Services.AddDataProtection();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services
+    .AddOptions<LocalAccessOptions>()
+    .Bind(builder.Configuration.GetSection(LocalAccessOptions.SectionName));
+
+builder.Services
     .AddOptions<CameraAccessOptions>()
     .Bind(builder.Configuration.GetSection(CameraAccessOptions.SectionName))
     .Validate(options => options.MaxSnapshotBytes is >= 1_024 and <= 100 * 1024 * 1024,

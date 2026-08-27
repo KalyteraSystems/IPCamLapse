@@ -58,7 +58,7 @@ Session JSON files are written atomically. Paths loaded from disk are normalized
 
 ## Security boundary
 
-The supported deployment is one trusted machine serving the UI over loopback. Camera requests default to literal private, loopback, or link-local addresses. HTTP responses are bounded and validated before they become frames. All state-changing API calls require antiforgery validation.
+The supported deployment is one trusted machine serving the UI over loopback. Container deployments may opt into private bridge clients only when the published host port remains bound to loopback. Camera requests default to literal private, loopback, or link-local addresses. HTTP responses are bounded and validated before they become frames. All state-changing API calls require antiforgery validation.
 
 The application has no user authentication and should not be bound directly to a LAN or the internet.
 
