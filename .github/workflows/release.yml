@@ -20,6 +20,9 @@ jobs:
           - rid: linux-x64
             os: ubuntu-latest
             extension: tar.gz
+          - rid: linux-arm64
+            os: ubuntu-latest
+            extension: tar.gz
 
     steps:
       - uses: actions/checkout@v7

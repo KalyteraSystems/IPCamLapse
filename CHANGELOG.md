@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- CodeQL security analysis for pushes, pull requests, and weekly scans
+- Linux ARM64 self-contained release archive
+
+### Changed
+
+- Main-branch and versioned container images now publish for Linux AMD64 and ARM64
+- Redundant container runs for the same ref are cancelled automatically
+
 ## 0.4.3 - 2026-08-30
 
 ### Fixed

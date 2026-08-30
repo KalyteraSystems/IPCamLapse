@@ -9,7 +9,7 @@
     <Description>A local-first web application for turning IP camera snapshots into timelapse videos.</Description>
     <RepositoryUrl>https://github.com/KalyteraSystems/IPCamLapse</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64</RuntimeIdentifiers>
     <DefaultItemExcludes>$(DefaultItemExcludes);data/**</DefaultItemExcludes>
   </PropertyGroup>
 

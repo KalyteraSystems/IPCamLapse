@@ -1,5 +1,8 @@
 # IPCamLapse
 
+[![CI](https://github.com/KalyteraSystems/IPCamLapse/actions/workflows/ci.yml/badge.svg)](https://github.com/KalyteraSystems/IPCamLapse/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/KalyteraSystems/IPCamLapse/actions/workflows/codeql.yml/badge.svg)](https://github.com/KalyteraSystems/IPCamLapse/actions/workflows/codeql.yml)
+
 IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) capture tool that turns IP camera snapshots into time-lapse videos from a local web interface. Its simulated camera makes the complete capture-to-video workflow available without hardware.
 
 ![IPCamLapse demo](docs/images/demo.gif)
@@ -24,7 +27,7 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 
 ## Try it
 
-Download a self-contained Windows or Linux archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
+Download a self-contained Windows x64, Linux x64, or Linux ARM64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
 
 FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space. New installations keep runtime data in the operating system's local application-data directory; an existing `data` directory beside the app is reused automatically.
 
@@ -53,7 +56,7 @@ Docker images include FFmpeg and run as a non-root user. From the repository:
 docker compose up --build
 ```
 
-Open <http://127.0.0.1:5080>. Captures, profiles, and settings are kept in the `ipcamlapse-data` volume. Tagged releases are also published as multi-architecture images at `ghcr.io/kalyterasystems/ipcamlapse`.
+Open <http://127.0.0.1:5080>. Captures, profiles, and settings are kept in the `ipcamlapse-data` volume. The `latest` and versioned images at `ghcr.io/kalyterasystems/ipcamlapse` support Linux AMD64 and ARM64.
 
 The Compose file publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
 
@@ -99,6 +102,10 @@ dotnet list package --vulnerable --include-transitive
 ```
 
 CI runs on Windows and Ubuntu. The integration suite exercises demo capture → render → HTTP download. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and look for [`good first issue`](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue) tickets if you want a small starting point. Maintainer release steps are in [Releasing](docs/RELEASING.md).
+
+## Maintainer
+
+IPCamLapse is maintained by [el kampu](https://github.com/elkampu) through [Kalytera Systems](https://github.com/KalyteraSystems). Product and company information is available at [kalyterasystems.com](https://kalyterasystems.com).
 
 ## License
 
