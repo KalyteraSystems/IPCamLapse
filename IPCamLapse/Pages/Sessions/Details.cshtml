@@ -235,7 +235,16 @@
         </section>
 
         <section class="card shadow-sm mb-4">
-            <div class="card-header"><h2 class="h5 mb-0">Activity</h2></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Activity</h2>
+
+                <a href="/api/sessions/@Model.Session.Id/events/download"
+                   download
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-download me-1" aria-hidden="true"></i>
+                    Download log
+                </a>
+            </div>
             <div class="card-body">
                 @if (Model.Events.Count == 0)
                 {
