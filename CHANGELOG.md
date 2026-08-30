@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Self-contained and portable builds now find their web assets when launched from any working directory
+- New installations keep runtime data outside the application directory while existing adjacent `data` directories continue to work
+
 ## 0.4.0 - 2026-08-27
 
 ### Added

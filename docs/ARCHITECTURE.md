@@ -1,6 +1,6 @@
 # Architecture
 
-IPCamLapse is a local-first ASP.NET Core application. Razor Pages serve the interface, minimal APIs handle live actions and downloads, and a hosted service owns capture work. Runtime data stays in the configured data directory.
+IPCamLapse is a local-first ASP.NET Core application. Razor Pages serve the interface, minimal APIs handle live actions and downloads, and a hosted service owns capture work. Runtime data stays in the configured data directory, which defaults to the operating system's local application-data location for new installations.
 
 ## Main components
 

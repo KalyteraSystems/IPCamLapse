@@ -26,7 +26,7 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 
 Download a self-contained Windows or Linux archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
 
-FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space.
+FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space. New installations keep runtime data in the operating system's local application-data directory; an existing `data` directory beside the app is reused automatically.
 
 ## Run from source
 
@@ -63,7 +63,7 @@ Environment variables use double underscores, such as `Storage__DataPath=/srv/ip
 
 | Setting | Default | Purpose |
 |---|---:|---|
-| `Storage:DataPath` | `data` | Runtime data directory, relative to the application by default |
+| `Storage:DataPath` | OS local application data | Runtime data directory; relative overrides resolve from the application directory |
 | `LocalAccess:AllowPrivateNetworks` | `false` | Accept private bridge clients; intended for loopback-published containers |
 | `CameraAccess:AllowHostnames` | `false` | Allow DNS hostnames in camera URLs |
 | `CameraAccess:AllowPublicAddresses` | `false` | Allow public camera addresses |
