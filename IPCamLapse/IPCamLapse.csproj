@@ -17,4 +17,8 @@
     <PackageReference Include="FFMpegCore" Version="5.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="IPCamLapse.Tests" />
+  </ItemGroup>
+
 </Project>
