@@ -296,6 +296,28 @@ app.Run();
 
 static string GetApplicationDirectory()
 {
+    var processPath = Environment.ProcessPath;
+    if (!string.IsNullOrWhiteSpace(processPath))
+    {
+        try
+        {
+            var processFile = new FileInfo(processPath);
+            var linkedDirectory = (processFile.ResolveLinkTarget(returnFinalTarget: true) as FileInfo)?.DirectoryName;
+            if (!string.IsNullOrWhiteSpace(linkedDirectory))
+                return linkedDirectory;
+
+            if (!string.IsNullOrWhiteSpace(processFile.DirectoryName)
+                && Directory.Exists(Path.Combine(processFile.DirectoryName, "wwwroot")))
+                return processFile.DirectoryName;
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
     var assemblyDirectory = Path.GetDirectoryName(typeof(Program).Assembly.Location);
     return string.IsNullOrWhiteSpace(assemblyDirectory)
         ? AppContext.BaseDirectory

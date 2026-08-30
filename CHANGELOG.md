@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3 - 2026-08-30
+
+### Fixed
+
+- Portable command aliases now follow their final executable link before locating web assets
+
 ## 0.4.2 - 2026-08-30
 
 ### Fixed
