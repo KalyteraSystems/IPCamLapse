@@ -27,7 +27,7 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 
 ## Try it
 
-Download a self-contained Windows x64, Linux x64, or Linux ARM64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
+Download a self-contained Windows x64 or Linux x64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
 
 FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space. New installations keep runtime data in the operating system's local application-data directory; an existing `data` directory beside the app is reused automatically.
 
@@ -50,15 +50,15 @@ Open <http://127.0.0.1:5080>. The built-in demo camera works immediately.
 
 ## Run with Docker
 
-Docker images include FFmpeg and run as a non-root user. From the repository:
+Docker images include FFmpeg and run as a non-root user. Run the published image directly:
 
 ```console
-docker compose up --build
+docker run --detach --name ipcamlapse --restart unless-stopped --publish 127.0.0.1:5080:8080 --env LocalAccess__AllowPrivateNetworks=true --volume ipcamlapse-data:/data ghcr.io/kalyterasystems/ipcamlapse:latest
 ```
 
 Open <http://127.0.0.1:5080>. Captures, profiles, and settings are kept in the `ipcamlapse-data` volume. The `latest` and versioned images at `ghcr.io/kalyterasystems/ipcamlapse` support Linux AMD64 and ARM64.
 
-The Compose file publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
+The command publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
 
 ## Configuration
 
