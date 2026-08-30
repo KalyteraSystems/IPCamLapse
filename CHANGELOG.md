@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- WinGet command aliases now resolve web assets from the installed package directory
+
 ## 0.4.1 - 2026-08-30
 
 ### Fixed

@@ -7,7 +7,7 @@ using IPCamLapse.Services;
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
-    ContentRootPath = AppContext.BaseDirectory
+    ContentRootPath = GetApplicationDirectory()
 });
 
 builder.Services.AddRazorPages();
@@ -293,6 +293,14 @@ app.MapGet("/api/system/storage", async (IStorageService storage) =>
 });
 
 app.Run();
+
+static string GetApplicationDirectory()
+{
+    var assemblyDirectory = Path.GetDirectoryName(typeof(Program).Assembly.Location);
+    return string.IsNullOrWhiteSpace(assemblyDirectory)
+        ? AppContext.BaseDirectory
+        : assemblyDirectory;
+}
 
 static HttpMessageHandler CreateCameraHandler(bool allowInvalidCertificate)
 {
