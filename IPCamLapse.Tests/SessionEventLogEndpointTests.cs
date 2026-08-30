@@ -32,21 +32,18 @@ public sealed class SessionEventLogEndpointTests
                     Name = "Activity log test"
                 });
 
-            var sessionDirectory =
-                await sessions.GetSessionStoragePathAsync(
-                    session.Id);
+            var frames = factory.Services.GetRequiredService<IFrameCatalogService>();
 
-            var logContent =
-                """
-                {"kind":"session_started"}
-                {"kind":"frame_captured"}
-                """;
+            await frames.AppendEventAsync(session.Id, new CaptureEvent
+            {
+                At = new DateTime(2026, 8, 30, 12, 0, 0, DateTimeKind.Utc),
+                Kind = CaptureEventKind.State,
+                Message = "Session started"
+            });
 
-            await File.WriteAllTextAsync(
-                Path.Combine(
-                    sessionDirectory,
-                    "events.json"),
-                logContent);
+            var eventLogPath = Path.Combine(session.StoragePath!, "events.jsonl");
+
+            var expectedLogContent = await File.ReadAllTextAsync(eventLogPath);
 
             var response = await client.GetAsync(
                 $"/api/sessions/{session.Id}/events/download");
@@ -63,13 +60,61 @@ public sealed class SessionEventLogEndpointTests
                     ?.DispositionType);
 
             Assert.Contains(
-                $"session-{session.Id}-events.json",
+                $"session-{session.Id}-events.jsonl",
                 response.Content.Headers.ContentDisposition
                     ?.ToString());
 
-            Assert.Equal(
-                logContent,
-                await response.Content.ReadAsStringAsync());
+            Assert.Equal(expectedLogContent, await response.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            DeleteTemporaryRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task ExistingEventsEndpointRemainsAvailable()
+    {
+        var root = CreateTemporaryRoot();
+
+        try
+        {
+            await using var factory = new IPCamLapseFactory(root);
+
+            using var client = factory.CreateClient();
+
+            var sessions =
+                factory.Services
+                    .GetRequiredService<ICaptureSessionService>();
+
+            var frames = factory.Services.GetRequiredService<IFrameCatalogService>();
+
+            var session = await sessions.CreateSessionAsync(
+                new CaptureSession
+                {
+                    Id = "c1d2e3f4",
+                    Name = "Existing events endpoint"
+                });
+
+            await frames.AppendEventAsync(
+                session.Id,
+                new CaptureEvent
+                {
+                    Kind = CaptureEventKind.State,
+                    Message = "Session started"
+                });
+
+            var response = await client.GetAsync(
+                $"/api/sessions/{session.Id}/events?limit=1");
+
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+
+            Assert.Contains(
+                "Session started",
+                content,
+                StringComparison.Ordinal);
         }
         finally
         {

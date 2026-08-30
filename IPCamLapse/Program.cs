@@ -124,9 +124,13 @@ app.MapGet("/api/sessions/{id}/frames/{fileName}", async (
         enableRangeProcessing: false);
 });
 
-app.MapGet("/api/sessions/{id}/events/download", async (
-    string id,
-    ICaptureSessionService sessions) =>
+app.MapGet("/api/sessions/{id}/events", async (string id, int? limit, IFrameCatalogService frames) =>
+{
+    return Results.Ok(
+        await frames.GetEventsAsync(id, limit ?? 50));
+});
+
+app.MapGet("/api/sessions/{id}/events/download", async (string id, ICaptureSessionService sessions) =>
 {
     var session = await sessions.GetSessionAsync(id);
 
@@ -138,7 +142,7 @@ app.MapGet("/api/sessions/{id}/events/download", async (
 
     var eventLogPath = Path.Combine(
         sessionDirectory,
-        "events.json");
+        "events.jsonl");
 
     if (!File.Exists(eventLogPath))
     {
@@ -157,7 +161,7 @@ app.MapGet("/api/sessions/{id}/events/download", async (
     return Results.File(
         stream,
         "application/x-ndjson",
-        $"session-{id}-events.json");
+        $"session-{id}-events.jsonl");
 });
 
 app.MapGet("/api/sessions/{id}/status", async (
