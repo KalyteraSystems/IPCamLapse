@@ -18,11 +18,11 @@
 
 ## Publish
 
-Create and push an annotated `v<version>` tag on the release commit. The release workflow builds self-contained archives and creates the GitHub release. The container workflow publishes versioned Linux AMD64 and ARM64 images to GitHub Container Registry.
+Create and push an annotated `v<version>` tag on the release commit. The release workflow builds self-contained Windows x64, Linux x64, and Linux ARM64 archives and creates the GitHub release. The container workflow publishes versioned Linux AMD64 and ARM64 images to GitHub Container Registry.
 
 ## Verify
 
-- Download and extract each archive.
+- Download and extract the Windows x64, Linux x64, and Linux ARM64 archives.
 - Start the app and complete a demo capture.
 - Confirm the System page reports writable storage and FFmpeg availability where installed.
 - Pull the tagged container image and check `/api/system/health` through a loopback-only port.
