@@ -33,6 +33,9 @@ jobs:
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal
 
+      - name: Pack OpenCamInterop
+        run: dotnet pack OpenCamInterop/OpenCamInterop.csproj --configuration Release --no-build --no-restore --output artifacts/OpenCamInterop
+
       - name: Verify formatting
         run: dotnet format --verify-no-changes --no-restore
 

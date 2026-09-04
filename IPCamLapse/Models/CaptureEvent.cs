@@ -17,6 +17,8 @@ public sealed class CaptureEvent
     public int? Attempt { get; set; }
 }
 
+public sealed record SequencedCaptureEvent(long Sequence, CaptureEvent Event);
+
 public sealed record FrameInfo(
     int Number,
     string FileName,

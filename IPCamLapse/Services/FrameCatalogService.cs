@@ -11,6 +11,7 @@ public interface IFrameCatalogService
     Task AppendEventAsync(string sessionId, CaptureEvent captureEvent, CancellationToken cancellationToken = default);
     Task<FramePage> GetFramesAsync(string sessionId, int offset, int limit);
     Task<IReadOnlyList<CaptureEvent>> GetEventsAsync(string sessionId, int limit);
+    Task<IReadOnlyList<SequencedCaptureEvent>> GetEventRecordsAsync(string sessionId, int limit);
     Task<IReadOnlyList<string>> GetImagePathsAsync(string sessionId, int? startFrame = null, int? endFrame = null);
     Task<string?> ResolveFramePathAsync(string sessionId, string fileName);
 }
@@ -67,29 +68,47 @@ public sealed class FrameCatalogService : IFrameCatalogService
 
     public async Task<IReadOnlyList<CaptureEvent>> GetEventsAsync(string sessionId, int limit)
     {
+        var records = await GetEventRecordsAsync(sessionId, limit);
+        return records
+            .Reverse()
+            .Select(record => record.Event)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<SequencedCaptureEvent>> GetEventRecordsAsync(string sessionId, int limit)
+    {
         var session = await _sessions.GetSessionAsync(sessionId);
         if (session?.StoragePath is null)
-            return Array.Empty<CaptureEvent>();
+            return Array.Empty<SequencedCaptureEvent>();
         var path = Path.Combine(session.StoragePath, "events.jsonl");
         if (!File.Exists(path))
-            return Array.Empty<CaptureEvent>();
+            return Array.Empty<SequencedCaptureEvent>();
 
-        var events = new List<CaptureEvent>();
-        foreach (var line in (await File.ReadAllLinesAsync(path)).Reverse())
+        var take = Math.Clamp(limit, 1, 500);
+        var records = new Queue<SequencedCaptureEvent>(take);
+        long sequence = 0;
+        await foreach (var line in File.ReadLinesAsync(path))
         {
-            if (events.Count >= Math.Clamp(limit, 1, 500))
-                break;
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            sequence++;
             try
             {
                 var captureEvent = JsonSerializer.Deserialize<CaptureEvent>(line);
                 if (captureEvent is not null)
-                    events.Add(captureEvent);
+                {
+                    if (records.Count == take)
+                        records.Dequeue();
+                    records.Enqueue(new SequencedCaptureEvent(sequence, captureEvent));
+                }
             }
             catch (JsonException)
             {
             }
         }
-        return events;
+
+        return records.ToList();
     }
 
     public async Task<IReadOnlyList<string>> GetImagePathsAsync(

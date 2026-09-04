@@ -17,6 +17,8 @@ IPCamLapse is a local-first ASP.NET Core application. Razor Pages serve the inte
 | `StorageService` | Usage estimates, disk reserve, storage budget, and retention cleanup |
 | `SystemHealthService` | FFmpeg, write-permission, and free-space checks |
 | SignalR hub | Live state, progress, and camera diagnostics |
+| `OpenCamInterop` | Pure, bounded Frigate and ONVIF transforms plus CloudEvents validation and JSON formatting |
+| `InteropCaptureEventMapper` | Privacy-minimized projection of append-only IPCamLapse events into the interoperability contract |
 
 ## Capture lifecycle
 
@@ -64,6 +66,14 @@ The supported deployment is one trusted machine serving the UI over loopback. Co
 
 The application has no user authentication and should not be bound directly to a LAN or the internet.
 
+## Interoperability boundary
+
+`OpenCamInterop` targets .NET 8 so other applications can consume it without depending on the IPCamLapse web application. Adapters receive an `AdapterMessage` containing bytes and metadata from a caller-owned transport. They never connect to a broker or camera themselves. Output validation and structured/batch encoding use the official CloudEvents C# SDK.
+
+The Frigate adapter hashes the exact adapter/topic/payload tuple for deterministic delivery identity. The ONVIF adapter parses only supported WS-Notification container paths and hashes each normalized notification independently of its SOAP wrapper. Generic ONVIF item values cross the boundary only as `[redacted]`; canonical motion events expose a Boolean plus opaque correlation identifiers.
+
+IPCamLapse's CloudEvents endpoint reads the existing append-only activity log. Physical nonblank line numbers form its stable sequence, so a malformed historic line leaves a gap rather than changing all later event IDs. The existing native activity endpoint and on-disk format are unchanged.
+
 ## Tests
 
-Unit tests cover URL policy, persistence boundaries, deterministic pause/resume timing, fixed capture deadlines, and schedule windows. The integration suite starts the application in memory, runs a demo capture, crosses the render boundary, and downloads the resulting video through the HTTP API.
+Unit tests cover URL policy, persistence boundaries, deterministic pause/resume timing, fixed capture deadlines, schedule windows, adapter limits, redaction, event identity, schemas, and malformed input. The integration suite starts the application in memory, runs a demo capture, crosses the render boundary, and downloads the resulting video through the HTTP API. Endpoint tests also verify that CloudEvents exports cannot reveal configured credentials, URLs, paths, or raw messages.
