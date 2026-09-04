@@ -372,6 +372,8 @@
             probe.src = next;
         }
 
+        const loadMoreError = 'Could not load more frames. Please try again.';
+
         async function loadMoreFrames() {
             const button = document.getElementById('load-more');
             const status = document.getElementById('load-more-status');
@@ -379,15 +381,15 @@
             status.textContent = '';
             try {
                 const response = await fetch(`/api/sessions/${sessionId}/frames?offset=${galleryOffset}&limit=24`);
-                if (!response.ok) throw new Error('Could not load more frames. Please try again.');
+                if (!response.ok) throw new Error(loadMoreError);
                 const page = await response.json();
                 page.items.forEach(addFrame);
                 galleryOffset += page.items.length;
                 if (galleryOffset >= page.total) button.remove();
                 else button.disabled = false;
-            } catch (error) {
+            } catch {
                 button.disabled = false;
-                status.textContent = error.message || 'Could not load more frames. Please try again.';
+                status.textContent = loadMoreError;
             }
         }
 
@@ -411,7 +413,6 @@
             download.href = frame.downloadUrl;
             download.ariaLabel = `Download frame ${frame.number}`;
             download.innerHTML = '<i class="bi bi-download" aria-hidden="true"></i>';
-            download.firstElementChild.setAttribute('aria-hidden', 'true');
             meta.append(label, download);
             article.append(link, meta);
             document.getElementById('frame-gallery').appendChild(article);

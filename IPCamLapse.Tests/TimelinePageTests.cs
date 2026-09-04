@@ -38,8 +38,10 @@ public sealed class TimelinePageTests
 
             Assert.Contains("id=\"load-more-status\"", content, StringComparison.Ordinal);
             Assert.Contains("aria-live=\"polite\"", content, StringComparison.Ordinal);
-            Assert.Contains("if (!response.ok)", content, StringComparison.Ordinal);
-            Assert.Contains("download.firstElementChild.setAttribute('aria-hidden', 'true')", content, StringComparison.Ordinal);
+            Assert.Contains("const loadMoreError = 'Could not load more frames. Please try again.';", content, StringComparison.Ordinal);
+            Assert.Contains("status.textContent = loadMoreError;", content, StringComparison.Ordinal);
+            Assert.Contains("download.innerHTML = '<i class=\"bi bi-download\" aria-hidden=\"true\"></i>';", content, StringComparison.Ordinal);
+            Assert.DoesNotContain("firstElementChild.setAttribute", content, StringComparison.Ordinal);
         }
         finally
         {
