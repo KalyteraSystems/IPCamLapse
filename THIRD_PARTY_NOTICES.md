@@ -14,6 +14,13 @@ IPCamLapse distributes the following browser assets in `IPCamLapse/wwwroot/lib`.
 | Manrope | — | SIL OFL 1.1 | <https://github.com/sharanda/manrope> |
 | Roboto Condensed | — | SIL OFL 1.1 | <https://github.com/googlefonts/roboto-classic> |
 
+OpenCamInterop uses these .NET packages at runtime:
+
+| Component | Version | License | Source |
+|---|---:|---|---|
+| CloudNative.CloudEvents | 2.9.0 | Apache-2.0 | <https://github.com/cloudevents/sdk-csharp> |
+| CloudNative.CloudEvents.SystemTextJson | 2.9.0 | Apache-2.0 | <https://github.com/cloudevents/sdk-csharp> |
+
 License copies already bundled with components remain in their library directories. Font license copies are stored beside the font files in `IPCamLapse/wwwroot/fonts`. The linked upstream repositories contain the authoritative copyright and license notices for every component.
 
 .NET/NuGet dependencies are declared in project files and resolved in package lock files. They are not relicensed by the IPCamLapse Apache-2.0 license.

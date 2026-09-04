@@ -45,6 +45,19 @@
         "resolved": "4.0.0",
         "contentHash": "kzLFyBYUnoidpGOXvpNOfIo8C92gVgVR6X8ncHwhcrDYugiOut5rrhDkr0L3cWHd7J2pKXf6LgaeXoBBDlx1ag=="
       },
+      "CloudNative.CloudEvents": {
+        "type": "Transitive",
+        "resolved": "2.9.0",
+        "contentHash": "Qh8/MS3YBI78Q5+AVXN/hNQZkhFW5OyDHdn4Wi05ZzlylKOsTypBiQQ1u0U8iOZ24HMe8Hc0VH2CIwnY4YTGEA=="
+      },
+      "CloudNative.CloudEvents.SystemTextJson": {
+        "type": "Transitive",
+        "resolved": "2.9.0",
+        "contentHash": "gkf4+RRR8W4VmB7hZr0Wie5VYz+oRKJnuj5CLtyKANa+Yq+eynMqVBnmnjWf8hvgCVDAzyvM2iq6THZageO8jA==",
+        "dependencies": {
+          "CloudNative.CloudEvents": "2.9.0"
+        }
+      },
       "FFMpegCore": {
         "type": "Transitive",
         "resolved": "5.4.0",
@@ -129,7 +142,14 @@
       "ipcamlapse": {
         "type": "Project",
         "dependencies": {
-          "FFMpegCore": "[5.4.0, )"
+          "FFMpegCore": "[5.4.0, )",
+          "OpenCamInterop": "[0.1.0-alpha.1, )"
+        }
+      },
+      "opencaminterop": {
+        "type": "Project",
+        "dependencies": {
+          "CloudNative.CloudEvents.SystemTextJson": "[2.9.0, )"
         }
       }
     }

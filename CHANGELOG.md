@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Alpha OpenCamInterop .NET library with validated CloudEvents models, Frigate object-event and ONVIF notification transformers, v1 JSON Schemas, and synthetic fixtures
+- Read-only IPCamLapse activity export using CloudEvents batch JSON
+
+### Security
+
+- Interoperability inputs and batches are bounded; XML DTDs and duplicate JSON members are rejected
+- Frigate fields are allowlisted, generic ONVIF values are redacted, and IPCamLapse exports omit credentials, URLs, paths, and raw messages
+
 ## 0.4.4 - 2026-09-04
 
 ### Added

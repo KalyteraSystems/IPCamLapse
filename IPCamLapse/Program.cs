@@ -5,6 +5,7 @@ using IPCamLapse.Options;
 using IPCamLapse.Services;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.Options;
+using OpenCamInterop;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -54,6 +55,7 @@ builder.Services.AddSingleton<ICaptureSessionService, CaptureSessionService>();
 builder.Services.AddSingleton<IDemoFrameGenerator, DemoFrameGenerator>();
 builder.Services.AddSingleton<ICameraService, CameraService>();
 builder.Services.AddSingleton<IFrameCatalogService, FrameCatalogService>();
+builder.Services.AddSingleton<IInteropCaptureEventMapper, InteropCaptureEventMapper>();
 builder.Services.AddSingleton<ICaptureScheduleService, CaptureScheduleService>();
 builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IVideoService, VideoService>();
@@ -133,6 +135,25 @@ app.MapGet("/api/sessions/{id}/events", async (string id, int? limit, IFrameCata
 {
     return Results.Ok(
         await frames.GetEventsAsync(id, limit ?? 50));
+});
+
+app.MapGet("/api/sessions/{id}/events/cloudevents", async (
+    string id,
+    int? limit,
+    ICaptureSessionService sessions,
+    IFrameCatalogService frames,
+    IInteropCaptureEventMapper mapper) =>
+{
+    if (await sessions.GetSessionAsync(id) is null)
+        return Results.NotFound();
+
+    var effectiveLimit = Math.Clamp(limit ?? 50, 1, StructuredCloudEventJson.MaxBatchEvents);
+    var records = await frames.GetEventRecordsAsync(id, effectiveLimit);
+    var cloudEvents = records.Select(record => mapper.Map(id, record));
+    var body = StructuredCloudEventJson.SerializeBatch(cloudEvents);
+    return Results.Bytes(
+        body.ToArray(),
+        $"{StructuredCloudEventJson.BatchContentType}; charset=utf-8");
 });
 
 app.MapGet("/api/sessions/{id}/events/download", async (string id, ICaptureSessionService sessions) =>

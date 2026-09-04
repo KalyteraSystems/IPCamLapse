@@ -3,9 +3,11 @@ WORKDIR /src
 
 COPY global.json Directory.Build.props IPCamLapse.sln ./
 COPY IPCamLapse/IPCamLapse.csproj IPCamLapse/packages.lock.json IPCamLapse/
+COPY OpenCamInterop/OpenCamInterop.csproj OpenCamInterop/packages.lock.json OpenCamInterop/
 RUN dotnet restore IPCamLapse/IPCamLapse.csproj --locked-mode
 
 COPY IPCamLapse/ IPCamLapse/
+COPY OpenCamInterop/ OpenCamInterop/
 RUN dotnet publish IPCamLapse/IPCamLapse.csproj \
     --configuration Release \
     --no-restore \

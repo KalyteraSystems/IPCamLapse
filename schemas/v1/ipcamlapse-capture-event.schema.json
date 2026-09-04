@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opencaminterop:schema:ipcamlapse-capture-event:1",
+  "title": "IPCamLapse capture event data",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["adapter", "sessionId", "sequence", "kind"],
+  "properties": {
+    "adapter": { "const": "ipcamlapse.activity-log.v1" },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "kind": { "type": "string", "enum": ["frame", "failure", "state"] },
+    "frameNumber": { "type": "integer", "minimum": 0 },
+    "fileName": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "attempt": { "type": "integer", "minimum": 0 },
+    "state": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "capturing",
+        "paused",
+        "completed",
+        "cancelled",
+        "scheduled",
+        "rendering",
+        "failed",
+        "state-changed"
+      ]
+    },
+    "failureCode": {
+      "type": "string",
+      "enum": [
+        "timeout",
+        "http-error",
+        "size-limit",
+        "unsupported-content-type",
+        "invalid-image",
+        "connection-failed",
+        "url-rejected",
+        "storage-unavailable",
+        "unknown"
+      ]
+    }
+  }
+}

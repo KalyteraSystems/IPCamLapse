@@ -25,6 +25,17 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 |---|---|---|
 | ![Sessions dashboard](docs/images/dashboard.png) | ![New session form](docs/images/new-session.png) | ![Frame timeline and video](docs/images/session-gallery.png) |
 
+## OpenCamInterop preview
+
+This repository now incubates **OpenCamInterop**, a small .NET 8 library and fixture contract for normalizing camera events into validated CloudEvents 1.0 JSON. Its differentiator is the planned EventLab workflow: turn sanitized hardware quirks into deterministic replay tests, rather than build another camera-to-MQTT bridge. The first slice supports offline Frigate object messages and ONVIF notifications, includes versioned JSON Schemas and synthetic fixtures, and exposes IPCamLapse activity as a read-only CloudEvents batch; replay tooling remains roadmap work.
+
+```http
+GET /api/sessions/{id}/events/cloudevents?limit=50
+Accept: application/cloudevents-batch+json
+```
+
+The adapters make no network connections and store no credentials. Generic ONVIF values are redacted by default, and no physical-device or ONVIF-conformance coverage is claimed yet. Read the [OpenCamInterop contract and fixture guide](docs/OPEN_CAM_INTEROP.md) before consuming or contributing to the alpha API.
+
 ## Try it
 
 Download a self-contained Windows x64, Linux x64, or Linux ARM64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
@@ -98,7 +109,7 @@ docker exec ipcamlapse sh -c 'mkdir -p /data/data-protection-keys && cp /home/ap
 
 Without that one-time migration, saved camera passwords must be entered again after the upgrade.
 
-See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries. Planned work is tracked in the [Roadmap](docs/ROADMAP.md), and release changes are listed in the [Changelog](CHANGELOG.md).
+See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries. The experimental interoperability contract is documented in [OpenCamInterop](docs/OPEN_CAM_INTEROP.md). Planned work is tracked in the [Roadmap](docs/ROADMAP.md), and release changes are listed in the [Changelog](CHANGELOG.md).
 
 ## Development
 
