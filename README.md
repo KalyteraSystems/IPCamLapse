@@ -27,7 +27,7 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 
 ## Try it
 
-Download a self-contained Windows x64 or Linux x64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
+Download a self-contained Windows x64, Linux x64, or Linux ARM64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
 
 FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space. New installations keep runtime data in the operating system's local application-data directory; an existing `data` directory beside the app is reused automatically.
 
@@ -111,6 +111,10 @@ dotnet list package --vulnerable --include-transitive
 ```
 
 CI runs on Windows and Ubuntu. The integration suite exercises demo capture → render → HTTP download. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and look for [`good first issue`](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue) tickets if you want a small starting point. Maintainer release steps are in [Releasing](docs/RELEASING.md).
+
+## Contributors
+
+Thanks to everyone who improves IPCamLapse. The [contributors graph](https://github.com/KalyteraSystems/IPCamLapse/graphs/contributors) records merged code and documentation contributions.
 
 ## Maintainer
 

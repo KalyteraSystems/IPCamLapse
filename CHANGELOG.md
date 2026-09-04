@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.4 - 2026-09-04
+
 ### Added
 
 - CodeQL security analysis for pushes, pull requests, and weekly scans
