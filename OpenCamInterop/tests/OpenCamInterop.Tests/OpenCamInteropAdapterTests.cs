@@ -6,7 +6,7 @@ using OpenCamInterop.Adapters;
 using OpenCamInterop.Adapters.Frigate;
 using OpenCamInterop.Adapters.Onvif;
 
-namespace IPCamLapse.Tests;
+namespace OpenCamInterop.Tests;
 
 public sealed class OpenCamInteropAdapterTests
 {
