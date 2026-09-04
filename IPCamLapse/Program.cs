@@ -3,6 +3,8 @@ using IPCamLapse.Middleware;
 using IPCamLapse.Models;
 using IPCamLapse.Options;
 using IPCamLapse.Services;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -14,6 +16,9 @@ builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 builder.Services.AddDataProtection();
+builder.Services.AddSingleton<
+    IConfigureOptions<KeyManagementOptions>,
+    DataProtectionKeyRingOptionsSetup>();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services

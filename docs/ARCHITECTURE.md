@@ -43,6 +43,8 @@ Capture deadlines advance from the previous deadline, not from the end of the la
 ```text
 data/
 ├── camera-profiles.json
+├── data-protection-keys/          # container image
+│   └── key-<id>.xml
 ├── settings.json
 └── sessions/
     ├── <session-id>.json
@@ -54,7 +56,7 @@ data/
         └── timelapse.mp4
 ```
 
-Session JSON files are written atomically. Paths loaded from disk are normalized back into the session directory. Passwords are protected with ASP.NET Core Data Protection before persistence.
+Session JSON files are written atomically. Paths loaded from disk are normalized back into the session directory. Passwords are protected with ASP.NET Core Data Protection before persistence. The container image keeps its key ring in the mounted data directory so a replacement container can read existing credentials; native installs retain the platform's default key repository.
 
 ## Security boundary
 

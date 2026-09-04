@@ -12,6 +12,12 @@
 - Main-branch and versioned container images now publish for Linux AMD64 and ARM64
 - Redundant container runs for the same ref are cancelled automatically
 
+### Fixed
+
+- Container replacements now retain Data Protection keys in the persistent data volume so saved camera passwords remain readable
+
+Container users upgrading from v0.4.3 or earlier should follow the key-ring migration step in the README before replacing the old container.
+
 ## 0.4.3 - 2026-08-30
 
 ### Fixed

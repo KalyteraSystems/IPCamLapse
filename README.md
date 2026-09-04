@@ -56,7 +56,7 @@ Docker images include FFmpeg and run as a non-root user. Run the published image
 docker run --detach --name ipcamlapse --restart unless-stopped --publish 127.0.0.1:5080:8080 --env LocalAccess__AllowPrivateNetworks=true --volume ipcamlapse-data:/data ghcr.io/kalyterasystems/ipcamlapse:latest
 ```
 
-Open <http://127.0.0.1:5080>. Captures, profiles, and settings are kept in the `ipcamlapse-data` volume. The `latest` and versioned images at `ghcr.io/kalyterasystems/ipcamlapse` support Linux AMD64 and ARM64.
+Open <http://127.0.0.1:5080>. Captures, profiles, settings, and credential-protection keys are kept in the `ipcamlapse-data` volume. The `latest` and versioned images at `ghcr.io/kalyterasystems/ipcamlapse` support Linux AMD64 and ARM64.
 
 The command publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
 
@@ -67,6 +67,7 @@ Environment variables use double underscores, such as `Storage__DataPath=/srv/ip
 | Setting | Default | Purpose |
 |---|---:|---|
 | `Storage:DataPath` | OS local application data | Runtime data directory; relative overrides resolve from the application directory |
+| `DataProtection:KeysPath` | OS default; container: `data-protection-keys` | Data Protection key directory; relative overrides resolve from the runtime data directory |
 | `LocalAccess:AllowPrivateNetworks` | `false` | Accept private bridge clients; intended for loopback-published containers |
 | `CameraAccess:AllowHostnames` | `false` | Allow DNS hostnames in camera URLs |
 | `CameraAccess:AllowPublicAddresses` | `false` | Allow public camera addresses |
@@ -87,7 +88,15 @@ Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECU
 
 ## Data and upgrades
 
-Runtime data is stored under the configured data path and excluded from Git. Existing v0.1 session JSON remains readable. A session interrupted by an application restart is restored as paused rather than silently resumed.
+Runtime data is stored under the configured data path and excluded from Git. Back up and restore the container volume as a unit: saved camera passwords cannot be recovered from profile or session JSON without its Data Protection key ring. Existing v0.1 session JSON remains readable. A session interrupted by an application restart is restored as paused rather than silently resumed.
+
+Before replacing a container first created with v0.4.3 or earlier, migrate its existing key ring into the mounted volume while that container is still running:
+
+```console
+docker exec ipcamlapse sh -c 'mkdir -p /data/data-protection-keys && cp /home/app/.aspnet/DataProtection-Keys/key-*.xml /data/data-protection-keys/'
+```
+
+Without that one-time migration, saved camera passwords must be entered again after the upgrade.
 
 See [Architecture](docs/ARCHITECTURE.md) for the lifecycle, timing model, storage layout, and component boundaries. Planned work is tracked in the [Roadmap](docs/ROADMAP.md), and release changes are listed in the [Changelog](CHANGELOG.md).
 
