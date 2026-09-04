@@ -129,12 +129,44 @@ app.MapGet("/api/sessions/{id}/frames/{fileName}", async (
         enableRangeProcessing: false);
 });
 
-app.MapGet("/api/sessions/{id}/events", async (
-    string id,
-    int? limit,
-    IFrameCatalogService frames) =>
+app.MapGet("/api/sessions/{id}/events", async (string id, int? limit, IFrameCatalogService frames) =>
 {
-    return Results.Ok(await frames.GetEventsAsync(id, limit ?? 50));
+    return Results.Ok(
+        await frames.GetEventsAsync(id, limit ?? 50));
+});
+
+app.MapGet("/api/sessions/{id}/events/download", async (string id, ICaptureSessionService sessions) =>
+{
+    var session = await sessions.GetSessionAsync(id);
+
+    if (session is null)
+        return Results.NotFound();
+
+    var sessionDirectory =
+        await sessions.GetSessionStoragePathAsync(id);
+
+    var eventLogPath = Path.Combine(
+        sessionDirectory,
+        "events.jsonl");
+
+    if (!File.Exists(eventLogPath))
+    {
+        return Results.NotFound(new
+        {
+            message = "Activity log is not available."
+        });
+    }
+
+    var stream = new FileStream(
+        eventLogPath,
+        FileMode.Open,
+        FileAccess.Read,
+        FileShare.ReadWrite);
+
+    return Results.File(
+        stream,
+        "application/x-ndjson",
+        $"session-{id}-events.jsonl");
 });
 
 app.MapGet("/api/sessions/{id}/status", async (
