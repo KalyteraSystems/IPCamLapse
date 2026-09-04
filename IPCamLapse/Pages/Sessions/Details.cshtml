@@ -142,7 +142,7 @@
                             </a>
                             <div class="frame-meta">
                                 <span>#@frame.Number · @frame.CapturedAt.ToLocalTime().ToString("HH:mm:ss")</span>
-                                <a href="@frame.DownloadUrl" aria-label="Download frame @frame.Number"><i class="bi bi-download"></i></a>
+                                <a href="@frame.DownloadUrl" aria-label="Download frame @frame.Number"><i class="bi bi-download" aria-hidden="true"></i></a>
                             </div>
                         </article>
                     }
@@ -150,6 +150,7 @@
                 @if (Model.Frames.Items.Count < Model.Frames.Total)
                 {
                     <button type="button" class="btn btn-outline-secondary w-100 mt-3" id="load-more" onclick="loadMoreFrames()">Load more</button>
+                    <div id="load-more-status" class="small text-danger mt-2" role="status" aria-live="polite"></div>
                 }
             </div>
         </section>
@@ -371,11 +372,16 @@
             probe.src = next;
         }
 
+        const loadMoreError = 'Could not load more frames. Please try again.';
+
         async function loadMoreFrames() {
             const button = document.getElementById('load-more');
+            const status = document.getElementById('load-more-status');
             button.disabled = true;
+            status.textContent = '';
             try {
                 const response = await fetch(`/api/sessions/${sessionId}/frames?offset=${galleryOffset}&limit=24`);
+                if (!response.ok) throw new Error(loadMoreError);
                 const page = await response.json();
                 page.items.forEach(addFrame);
                 galleryOffset += page.items.length;
@@ -383,6 +389,7 @@
                 else button.disabled = false;
             } catch {
                 button.disabled = false;
+                status.textContent = loadMoreError;
             }
         }
 
@@ -405,7 +412,7 @@
             const download = document.createElement('a');
             download.href = frame.downloadUrl;
             download.ariaLabel = `Download frame ${frame.number}`;
-            download.innerHTML = '<i class="bi bi-download"></i>';
+            download.innerHTML = '<i class="bi bi-download" aria-hidden="true"></i>';
             meta.append(label, download);
             article.append(link, meta);
             document.getElementById('frame-gallery').appendChild(article);
