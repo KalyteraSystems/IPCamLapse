@@ -12,6 +12,69 @@ namespace IPCamLapse.Tests;
 public sealed class CapturePipelineIntegrationTests
 {
     [Fact]
+    public async Task ProtectedCredentialsSurviveApplicationRestart()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"ipcamlapse-restart-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        const string profilePassword = "profile password";
+        const string sessionPassword = "session password";
+        try
+        {
+            await using (var firstFactory = new IPCamLapseFactory(root))
+            {
+                var profiles = firstFactory.Services.GetRequiredService<ICameraProfileService>();
+                await profiles.SaveAsync(new CameraProfile
+                {
+                    Id = "c0ffee12",
+                    Name = "Back garden",
+                    Url = "http://192.168.1.25/snapshot.jpg",
+                    Username = "camera"
+                }, profilePassword);
+
+                var sessions = firstFactory.Services.GetRequiredService<ICaptureSessionService>();
+                await sessions.CreateSessionAsync(new CaptureSession
+                {
+                    Id = "deadbeef",
+                    Name = "One-time camera",
+                    Configuration = new CaptureConfiguration
+                    {
+                        CameraUrl = "http://192.168.1.26/snapshot.jpg",
+                        Username = "camera",
+                        Password = sessionPassword
+                    }
+                });
+            }
+
+            var dataPath = Path.Combine(root, "data");
+            var profileJson = await File.ReadAllTextAsync(Path.Combine(dataPath, "camera-profiles.json"));
+            var sessionJson = await File.ReadAllTextAsync(Path.Combine(dataPath, "sessions", "deadbeef.json"));
+            Assert.DoesNotContain(profilePassword, profileJson, StringComparison.Ordinal);
+            Assert.DoesNotContain(sessionPassword, sessionJson, StringComparison.Ordinal);
+            Assert.NotEmpty(Directory.GetFiles(
+                Path.Combine(dataPath, "data-protection-keys"),
+                "key-*.xml"));
+
+            await using var secondFactory = new IPCamLapseFactory(root);
+            var reloadedProfile = await secondFactory.Services
+                .GetRequiredService<ICameraProfileService>()
+                .GetAsync("c0ffee12");
+            var reloadedSession = await secondFactory.Services
+                .GetRequiredService<ICaptureSessionService>()
+                .GetSessionAsync("deadbeef");
+
+            Assert.NotNull(reloadedProfile);
+            Assert.Equal(profilePassword, reloadedProfile.Password);
+            Assert.NotNull(reloadedSession);
+            Assert.Equal(sessionPassword, reloadedSession.Configuration.Password);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task DemoCaptureRendersAndDownloadsVideo()
     {
         var root = Path.Combine(Path.GetTempPath(), $"ipcamlapse-integration-{Guid.NewGuid():N}");
@@ -24,6 +87,8 @@ public sealed class CapturePipelineIntegrationTests
                 AllowAutoRedirect = false,
                 HandleCookies = true
             });
+            await factory.Services.GetRequiredService<IApplicationSettingsService>().SaveAsync(
+                new ApplicationSettings { MinimumFreeBytes = 50L * 1024 * 1024 });
             var sessions = factory.Services.GetRequiredService<ICaptureSessionService>();
             var session = await sessions.CreateSessionAsync(new CaptureSession
             {
@@ -59,7 +124,9 @@ public sealed class CapturePipelineIntegrationTests
             }
 
             Assert.NotNull(completed);
-            Assert.Equal(SessionStatus.Completed, completed.Status);
+            Assert.True(
+                completed.Status == SessionStatus.Completed,
+                $"Capture ended as {completed.Status}: {completed.ErrorMessage ?? completed.LastCaptureError}");
             Assert.True(completed.CapturedFrameCount >= 2);
             Assert.NotNull(completed.VideoPath);
 
@@ -87,6 +154,7 @@ public sealed class CapturePipelineIntegrationTests
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseSetting("Storage:DataPath", Path.Combine(_root, "data"));
+            builder.UseSetting("DataProtection:KeysPath", "data-protection-keys");
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IVideoService>();

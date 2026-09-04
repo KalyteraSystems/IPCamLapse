@@ -24,7 +24,8 @@ RUN mkdir --parents /data \
     && chown --recursive "$APP_UID:$APP_UID" /app /data
 
 ENV ASPNETCORE_HTTP_PORTS=8080 \
-    Storage__DataPath=/data
+    Storage__DataPath=/data \
+    DataProtection__KeysPath=data-protection-keys
 
 EXPOSE 8080
 USER $APP_UID
