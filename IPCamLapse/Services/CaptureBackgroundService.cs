@@ -24,6 +24,7 @@ public sealed class CaptureBackgroundService : BackgroundService
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<CaptureBackgroundService> _logger;
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _sessionTokens = new();
+    private readonly ConcurrentDictionary<string, Task> _sessionTasks = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _sessionLocks = new();
     private CancellationToken _stoppingToken;
 
@@ -271,7 +272,14 @@ public sealed class CaptureBackgroundService : BackgroundService
             tokenSource.Dispose();
             return false;
         }
-        _ = RunCaptureLoopAsync(sessionId, tokenSource);
+        var captureTask = RunCaptureLoopAsync(sessionId, tokenSource);
+        _sessionTasks[sessionId] = captureTask;
+        _ = captureTask.ContinueWith(
+            completedTask => _sessionTasks.TryRemove(
+                new KeyValuePair<string, Task>(sessionId, completedTask)),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
         await Task.CompletedTask;
         return true;
     }
@@ -551,7 +559,23 @@ public sealed class CaptureBackgroundService : BackgroundService
 
     private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
 
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        CancelAllLoops();
+        await base.StopAsync(cancellationToken);
+
+        var captureTasks = _sessionTasks.Values.ToArray();
+        if (captureTasks.Length > 0)
+            await Task.WhenAll(captureTasks).WaitAsync(cancellationToken);
+    }
+
     public override void Dispose()
+    {
+        CancelAllLoops();
+        base.Dispose();
+    }
+
+    private void CancelAllLoops()
     {
         foreach (var tokenSource in _sessionTokens.Values)
         {
@@ -563,6 +587,5 @@ public sealed class CaptureBackgroundService : BackgroundService
             {
             }
         }
-        base.Dispose();
     }
 }
