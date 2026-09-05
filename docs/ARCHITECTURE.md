@@ -68,7 +68,7 @@ The application has no user authentication and should not be bound directly to a
 
 ## Interoperability boundary
 
-`OpenCamInterop` targets .NET 8 so other applications can consume it without depending on the IPCamLapse web application. Adapters receive an `AdapterMessage` containing bytes and metadata from a caller-owned transport. They never connect to a broker or camera themselves. Output validation and structured/batch encoding use the official CloudEvents C# SDK.
+`OpenCamInterop` targets .NET 10 and is maintained as a standalone source subtree so other applications can consume it without depending on the IPCamLapse web application. Adapters receive an `AdapterMessage` containing bytes and metadata from a caller-owned transport. They never connect to a broker or camera themselves. Output validation and structured/batch encoding use the official CloudEvents C# SDK.
 
 The Frigate adapter hashes the exact adapter/topic/payload tuple for deterministic delivery identity. The ONVIF adapter parses only supported WS-Notification container paths and hashes each normalized notification independently of its SOAP wrapper. Generic ONVIF item values cross the boundary only as `[redacted]`; canonical motion events expose a Boolean plus opaque correlation identifiers.
 

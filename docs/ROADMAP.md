@@ -12,13 +12,15 @@ IPCamLapse is developed in small, testable releases. Issues are the source of tr
 - Container images for Linux AMD64 and ARM64
 - End-to-end capture, render, and download tests
 - Alpha OpenCamInterop event contracts, synthetic fixtures, Frigate/ONVIF transformers, and IPCamLapse CloudEvents export
+- Offline OpenCamInterop EventLab `inspect`, manifest `verify`, and streaming `replay` commands
+- Executable fixture inventory and generated behavior matrix with standalone Windows/Ubuntu checks
 
 ## Next
 
 - WinGet installation for Windows
 - Small timeline and activity-log improvements ([good first issues](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue))
-- Fixture-driven OpenCamInterop compatibility cases for genuinely distinct camera and NVR behavior
-- An offline `inspect` and deterministic `replay` CLI prototype for sanitized event traces
+- Keep IPCamLapse's OpenCamInterop source copy aligned with reviewed standalone releases
+- Fixture-driven OpenCamInterop cases for genuinely distinct externally reported camera and NVR behavior
 
 ## Later
 
@@ -27,7 +29,6 @@ IPCamLapse is developed in small, testable releases. Issues are the source of tr
 - Import and export for settings and profiles
 - Performance measurements for long capture sessions
 - Transport-owned capture helpers only after the offline trace and replay contract is stable
-- A separate OpenCamInterop repository only after there is an external consumer and meaningful multi-vendor trace coverage
 
 ## Proposing work
 

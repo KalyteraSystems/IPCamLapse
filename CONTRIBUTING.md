@@ -30,17 +30,11 @@ dotnet format --verify-no-changes --no-restore
 dotnet list package --vulnerable --include-transitive
 ```
 
-## OpenCamInterop fixtures
+## OpenCamInterop source
 
-OpenCamInterop contributions should turn one previously uncovered interoperability behavior into an executable test. Start with the [contract and privacy guide](docs/OPEN_CAM_INTEROP.md) and the [fixture corpus instructions](OpenCamInterop/fixtures/v1/README.md).
+The `OpenCamInterop/` directory is the source-integrated copy of the separately maintained [OpenCamInterop project](https://github.com/KalyteraSystems/OpenCamInterop). Submit adapter, EventLab, schema, and fixture changes there using its contribution and privacy guides. Update this copy from a reviewed standalone commit rather than making unrelated direct edits in an IPCamLapse pull request.
 
-Never submit a raw event capture from a real installation. Reduce it to synthetic data and remove credentials, network addresses, serial numbers, people, faces, plates, URLs, thumbnails, and paths before committing. A new model name or compatibility-table row is not sufficient without a payload and assertion that exercise distinct behavior.
-
-Run the adapter and export tests while iterating:
-
-```console
-dotnet test IPCamLapse.Tests/IPCamLapse.Tests.csproj --no-restore --filter OpenCamInterop
-```
+Never submit a raw event capture from a real installation. Reduce it to synthetic data and remove credentials, network addresses, serial numbers, people, faces, plates, URLs, thumbnails, and paths before committing. A model name or compatibility-table row is not evidence without a payload and executable expectation.
 
 ## Your first contribution
 

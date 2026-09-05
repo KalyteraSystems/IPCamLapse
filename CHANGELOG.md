@@ -6,6 +6,8 @@
 
 - Alpha OpenCamInterop .NET library with validated CloudEvents models, Frigate object-event and ONVIF notification transformers, v1 JSON Schemas, and synthetic fixtures
 - Read-only IPCamLapse activity export using CloudEvents batch JSON
+- Offline OpenCamInterop EventLab inspect/verify/replay CLI, executable fixture manifest, and generated compatibility matrix
+- Standalone OpenCamInterop solution, contributor boundary, and Windows/Ubuntu validation while IPCamLapse retains a source-integrated first-party copy
 
 ### Security
 
