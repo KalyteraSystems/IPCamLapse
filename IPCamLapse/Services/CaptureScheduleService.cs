@@ -7,10 +7,18 @@ public sealed record ScheduleAvailability(bool Active, DateTime? NextStartUtc);
 public interface ICaptureScheduleService
 {
     ScheduleAvailability GetAvailability(CaptureSchedule schedule, DateTime utcNow);
+    DateTime ConvertWallTimeToUtc(DateTime localTime);
 }
 
 public sealed class CaptureScheduleService : ICaptureScheduleService
 {
+    private readonly TimeZoneInfo _timeZone;
+
+    public CaptureScheduleService(TimeZoneInfo timeZone)
+    {
+        _timeZone = timeZone;
+    }
+
     public ScheduleAvailability GetAvailability(CaptureSchedule schedule, DateTime utcNow)
     {
         utcNow = DateTime.SpecifyKind(utcNow, DateTimeKind.Utc);
@@ -27,20 +35,43 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
         };
     }
 
-    private static ScheduleAvailability EvaluateDaily(CaptureSchedule schedule, DateTime utcNow)
+    public DateTime ConvertWallTimeToUtc(DateTime localTime)
+    {
+        var wallTime = DateTime.SpecifyKind(localTime, DateTimeKind.Unspecified);
+        if (_timeZone.IsInvalidTime(wallTime))
+        {
+            var before = wallTime.AddMinutes(-1);
+            while (_timeZone.IsInvalidTime(before))
+                before = before.AddMinutes(-1);
+            var after = wallTime.AddMinutes(1);
+            while (_timeZone.IsInvalidTime(after))
+                after = after.AddMinutes(1);
+            wallTime = wallTime.Add(_timeZone.GetUtcOffset(after) - _timeZone.GetUtcOffset(before));
+        }
+
+        if (_timeZone.IsAmbiguousTime(wallTime))
+        {
+            var earlierOffset = _timeZone.GetAmbiguousTimeOffsets(wallTime).Max();
+            return DateTime.SpecifyKind(wallTime - earlierOffset, DateTimeKind.Utc);
+        }
+
+        return TimeZoneInfo.ConvertTimeToUtc(wallTime, _timeZone);
+    }
+
+    private ScheduleAvailability EvaluateDaily(CaptureSchedule schedule, DateTime utcNow)
     {
         if (!schedule.HasWindow)
             return new ScheduleAvailability(true, null);
-        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, TimeZoneInfo.Local);
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _timeZone);
         if (IsInsideWindow(localNow.TimeOfDay, schedule.WindowStartLocal!.Value, schedule.WindowEndLocal!.Value))
             return new ScheduleAvailability(true, null);
         var nextLocal = NextWindowStart(localNow, schedule.WindowStartLocal.Value);
-        return new ScheduleAvailability(false, TimeZoneInfo.ConvertTimeToUtc(nextLocal, TimeZoneInfo.Local));
+        return new ScheduleAvailability(false, ConvertWallTimeToUtc(nextLocal));
     }
 
-    private static ScheduleAvailability EvaluateWeekly(CaptureSchedule schedule, DateTime utcNow)
+    private ScheduleAvailability EvaluateWeekly(CaptureSchedule schedule, DateTime utcNow)
     {
-        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, TimeZoneInfo.Local);
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _timeZone);
         var start = schedule.WindowStartLocal ?? TimeSpan.Zero;
         var end = schedule.WindowEndLocal ?? TimeSpan.FromDays(1);
         var overnight = start >= end;
@@ -57,11 +88,11 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
                 continue;
             var candidate = date + start;
             if (candidate > localNow)
-                return new ScheduleAvailability(false, TimeZoneInfo.ConvertTimeToUtc(candidate, TimeZoneInfo.Local));
+                return new ScheduleAvailability(false, ConvertWallTimeToUtc(candidate));
         }
 
         var fallback = localNow.Date.AddDays(7) + start;
-        return new ScheduleAvailability(false, TimeZoneInfo.ConvertTimeToUtc(fallback, TimeZoneInfo.Local));
+        return new ScheduleAvailability(false, ConvertWallTimeToUtc(fallback));
     }
 
     private static bool IsInsideWindow(TimeSpan current, TimeSpan start, TimeSpan end)

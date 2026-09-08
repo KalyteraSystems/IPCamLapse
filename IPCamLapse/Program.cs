@@ -21,6 +21,7 @@ builder.Services.AddSingleton<
     IConfigureOptions<KeyManagementOptions>,
     DataProtectionKeyRingOptionsSetup>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TimeZoneInfo>(_ => TimeZoneInfo.Local);
 
 builder.Services
     .AddOptions<LocalAccessOptions>()
