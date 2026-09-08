@@ -99,6 +99,12 @@ Storage limits, disk reserve, retention, and frame-size estimates can be changed
 
 Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECURITY.md) for deployment assumptions and vulnerability reporting.
 
+`GET /healthz` is the container liveness probe: it returns an empty `204` response
+and deliberately performs no storage, FFmpeg, camera, or diagnostic work. The
+System page and `/api/system/health` remain the detailed readiness and operator
+diagnostic checks. The liveness path is still subject to the same local-only
+access middleware as the rest of the application.
+
 ## Data and upgrades
 
 Runtime data is stored under the configured data path and excluded from Git. Back up and restore the container volume as a unit: saved camera passwords cannot be recovered from profile or session JSON without its Data Protection key ring. Existing v0.1 session JSON remains readable. A session interrupted by an application restart is restored as paused rather than silently resumed.

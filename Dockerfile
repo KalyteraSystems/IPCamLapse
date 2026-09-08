@@ -16,7 +16,7 @@ RUN dotnet publish IPCamLapse/IPCamLapse.csproj \
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends ffmpeg \
+    && apt-get install --yes --no-install-recommends curl ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,5 +31,8 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
 
 EXPOSE 8080
 USER $APP_UID
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=6 \
+    CMD curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8080/healthz || exit 1
 
 ENTRYPOINT ["dotnet", "IPCamLapse.dll"]

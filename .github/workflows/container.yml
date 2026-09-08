@@ -52,8 +52,52 @@ jobs:
         with:
           context: .
           platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          load: ${{ github.event_name == 'pull_request' }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ github.event_name == 'pull_request' && 'ipcamlapse:smoke' || steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Start PR image and wait for liveness
+        if: github.event_name == 'pull_request'
+        env:
+          SMOKE_CONTAINER: ipcamlapse-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          docker run --detach --name "$SMOKE_CONTAINER" ipcamlapse:smoke
+          for attempt in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$SMOKE_CONTAINER")
+            if [ "$status" = healthy ]; then
+              exit 0
+            fi
+            if [ "$status" = unhealthy ]; then
+              exit 1
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Verify non-root process and writable data volume
+        if: github.event_name == 'pull_request'
+        env:
+          SMOKE_CONTAINER: ipcamlapse-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          test "$(docker exec "$SMOKE_CONTAINER" id -u)" -ne 0
+          docker exec "$SMOKE_CONTAINER" sh -c \
+            'probe=/data/.runtime-smoke; : > "$probe"; test -f "$probe"; rm "$probe"; test ! -e "$probe"'
+
+      - name: Print container diagnostics on failure
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          SMOKE_CONTAINER: ipcamlapse-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          if docker inspect "$SMOKE_CONTAINER" >/dev/null 2>&1; then
+            docker inspect "$SMOKE_CONTAINER"
+            docker logs "$SMOKE_CONTAINER"
+          fi
+
+      - name: Remove smoke-test container
+        if: always() && github.event_name == 'pull_request'
+        env:
+          SMOKE_CONTAINER: ipcamlapse-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+        run: docker rm --force "$SMOKE_CONTAINER" 2>/dev/null || true

@@ -80,6 +80,8 @@ app.UseMiddleware<ApiAntiforgeryMiddleware>();
 app.MapRazorPages();
 app.MapHub<ProgressHub>("/progressHub");
 
+app.MapGet("/healthz", () => Results.NoContent());
+
 app.MapGet("/api/sessions/{id}/video", async (
     string id,
     ICaptureSessionService sessions) =>
