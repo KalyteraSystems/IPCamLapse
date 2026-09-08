@@ -47,8 +47,13 @@
                         <p class="small mb-0"><i class="bi bi-person me-1"></i>@(profile.Username ?? "No username")</p>
                     }
                 </div>
-                <div class="card-footer bg-transparent d-flex gap-2">
+                <div class="card-footer bg-transparent d-flex flex-wrap gap-2">
                     <a asp-page="/Sessions/Create" class="btn btn-sm btn-outline-primary flex-fill">Use camera <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></a>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary camera-test-button"
+                            data-profile-id="@profile.Id">
+                        <i class="bi bi-wifi me-1" aria-hidden="true"></i>Test connection
+                    </button>
                     @if (!profile.IsDemo)
                     {
                         <a asp-page="/Cameras/Edit" asp-route-id="@profile.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
@@ -58,8 +63,49 @@
                             </button>
                         </form>
                     }
+                    <div class="camera-test-status small w-100"
+                         role="status"
+                         aria-live="polite"></div>
                 </div>
             </article>
         </div>
     }
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.camera-test-button').forEach(button => {
+            button.addEventListener('click', async () => {
+                const card = button.closest('.camera-card');
+                const status = card.querySelector('.camera-test-status');
+                const profileId = button.dataset.profileId;
+                button.disabled = true;
+                card.setAttribute('aria-busy', 'true');
+                status.className = 'camera-test-status small w-100 text-muted';
+                status.textContent = 'Testing camera connection…';
+
+                try {
+                    const response = await window.ipCamLapseFetch('/api/camera/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ profileId })
+                    });
+                    const data = await response.json();
+                    const duration = Number.isFinite(data.durationMs)
+                        ? ` · ${Math.round(data.durationMs)} ms`
+                        : '';
+                    if (!response.ok)
+                        throw new Error(`${data.message || 'Connection failed'}${duration}`);
+                    status.className = 'camera-test-status small w-100 text-success';
+                    status.textContent = `Connected${duration}`;
+                } catch (error) {
+                    status.className = 'camera-test-status small w-100 text-danger';
+                    status.textContent = error.message || 'Connection failed';
+                } finally {
+                    button.disabled = false;
+                    card.removeAttribute('aria-busy');
+                }
+            });
+        });
+    </script>
+}
