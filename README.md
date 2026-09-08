@@ -85,6 +85,7 @@ Environment variables use double underscores, such as `Storage__DataPath=/srv/ip
 | `CameraAccess:AllowHostnames` | `false` | Allow DNS hostnames in camera URLs |
 | `CameraAccess:AllowPublicAddresses` | `false` | Allow public camera addresses |
 | `CameraAccess:MaxSnapshotBytes` | `20971520` | Maximum snapshot response size |
+| `CameraAccess:RequestTimeoutSeconds` | `30` | Camera HTTP timeout in seconds (1–120) |
 
 Storage limits, disk reserve, retention, and frame-size estimates can be changed in the web interface.
 

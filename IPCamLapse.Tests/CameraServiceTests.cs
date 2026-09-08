@@ -100,8 +100,32 @@ public sealed class CameraServiceTests
         Assert.Contains("JPEG", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task CallerCancellationPropagatesOperationCanceledException()
+    {
+        var client = new HttpClient(new DelayingHandler()) { Timeout = TimeSpan.FromSeconds(30) };
+        var service = CreateService(new FixedHttpClientFactory(client));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.CaptureSnapshotAsync(TestEndpoint(), cancellation.Token));
+    }
+
+    [Fact]
+    public async Task HttpClientTimeoutReturnsSafeFailureResult()
+    {
+        var client = new HttpClient(new DelayingHandler()) { Timeout = TimeSpan.FromMilliseconds(10) };
+        var service = CreateService(new FixedHttpClientFactory(client));
+
+        var result = await service.CaptureSnapshotAsync(TestEndpoint());
+
+        Assert.False(result.Success);
+        Assert.Equal("Camera request timed out.", result.Error);
+    }
+
     private static CameraService CreateService(
-        RecordingHttpClientFactory factory,
+        IHttpClientFactory factory,
         long maxSnapshotBytes = 20 * 1024 * 1024)
     {
         var options = new CameraAccessOptions { MaxSnapshotBytes = maxSnapshotBytes };
@@ -112,6 +136,14 @@ public sealed class CameraServiceTests
             new DemoFrameGenerator(),
             NullLogger<CameraService>.Instance);
     }
+
+    private static CameraEndpoint TestEndpoint() => new(
+        "Test camera",
+        "http://192.168.1.25/snapshot.jpg",
+        null,
+        null,
+        false,
+        false);
 
     private static HttpResponseMessage JpegResponse(byte[] payload)
     {
@@ -154,5 +186,25 @@ public sealed class CameraServiceTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
             => Task.FromResult(_responseFactory(request));
+    }
+
+    private sealed class FixedHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpClient _client;
+
+        public FixedHttpClientFactory(HttpClient client) => _client = client;
+
+        public HttpClient CreateClient(string name) => _client;
+    }
+
+    private sealed class DelayingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("Unreachable");
+        }
     }
 }
