@@ -27,9 +27,15 @@ public sealed class TimelinePageTests
             Directory.CreateDirectory(images);
             for (var number = 1; number <= 25; number++)
             {
+                var size = number switch
+                {
+                    24 => 2_048,
+                    25 => 1_572_864,
+                    _ => 1
+                };
                 await File.WriteAllBytesAsync(
                     Path.Combine(images, $"frame_{number:0000}_20260904_120000.jpg"),
-                    [0]);
+                    new byte[size]);
             }
 
             var response = await client.GetAsync($"/Sessions/Details/{session.Id}");
@@ -42,6 +48,11 @@ public sealed class TimelinePageTests
             Assert.Contains("status.textContent = loadMoreError;", content, StringComparison.Ordinal);
             Assert.Contains("download.innerHTML = '<i class=\"bi bi-download\" aria-hidden=\"true\"></i>';", content, StringComparison.Ordinal);
             Assert.DoesNotContain("firstElementChild.setAttribute", content, StringComparison.Ordinal);
+            Assert.Contains("2 KB", content, StringComparison.Ordinal);
+            Assert.Contains("1.5 MB", content, StringComparison.Ordinal);
+            Assert.Contains("${formatFrameSize(frame.sizeBytes)}", content, StringComparison.Ordinal);
+            Assert.Contains("if (bytes >= 1024 ** 2)", content, StringComparison.Ordinal);
+            Assert.Contains("Math.round(bytes / 1024)", content, StringComparison.Ordinal);
         }
         finally
         {
