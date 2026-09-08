@@ -31,18 +31,22 @@ builder.Services
     .Bind(builder.Configuration.GetSection(CameraAccessOptions.SectionName))
     .Validate(options => options.MaxSnapshotBytes is >= 1_024 and <= 100 * 1024 * 1024,
         "CameraAccess:MaxSnapshotBytes must be between 1 KiB and 100 MiB.")
+    .Validate(options => options.RequestTimeoutSeconds is >= 1 and <= 120,
+        "CameraAccess:RequestTimeoutSeconds must be between 1 and 120 seconds.")
     .ValidateOnStart();
 
-builder.Services.AddHttpClient("CameraStrict", client =>
+builder.Services.AddHttpClient("CameraStrict", (services, client) =>
 {
-    client.Timeout = TimeSpan.FromSeconds(30);
+    var options = services.GetRequiredService<IOptions<CameraAccessOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("IPCamLapse/0.2");
 })
 .ConfigurePrimaryHttpMessageHandler(() => CreateCameraHandler(false));
 
-builder.Services.AddHttpClient("CameraInsecure", client =>
+builder.Services.AddHttpClient("CameraInsecure", (services, client) =>
 {
-    client.Timeout = TimeSpan.FromSeconds(30);
+    var options = services.GetRequiredService<IOptions<CameraAccessOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("IPCamLapse/0.2");
 })
 .ConfigurePrimaryHttpMessageHandler(() => CreateCameraHandler(true));
