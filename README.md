@@ -27,7 +27,9 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 
 ## OpenCamInterop integration
 
-IPCamLapse is the first-party consumer of [OpenCamInterop](https://github.com/KalyteraSystems/OpenCamInterop), a .NET 10 library and offline EventLab for turning sanitized camera-event quirks into deterministic CloudEvents tests. The source is kept under `OpenCamInterop/` so this repository remains buildable without a package registry or submodule initialization. The first alpha supports Frigate object messages and ONVIF notifications, a strict executable fixture manifest, `inspect`/`verify`/streaming `replay` commands, versioned JSON Schemas, and a generated compatibility matrix.
+IPCamLapse is the first-party consumer of [OpenCamInterop](https://github.com/KalyteraSystems/OpenCamInterop), a .NET 10 library and offline EventLab for turning sanitized camera-event quirks into deterministic CloudEvents tests. The source is kept under `OpenCamInterop/` so this repository remains buildable without a package registry or submodule initialization. This embedded snapshot supports Frigate object messages and ONVIF notifications, a strict executable fixture manifest, `inspect`/`verify`/streaming `replay` commands, versioned JSON Schemas, and a generated compatibility matrix.
+
+The embedded copy is updated separately from standalone releases. It does not include the standalone Scrypted adapter or the newer zero-event and repeated-event fixture expectations. See the [integration notes](docs/OPEN_CAM_INTEROP.md) for this copy's scope and the [standalone project status](https://github.com/KalyteraSystems/OpenCamInterop/blob/main/docs/PROJECT_STATUS.md) for current upstream capabilities and evidence.
 
 ```http
 GET /api/sessions/{id}/events/cloudevents?limit=50
