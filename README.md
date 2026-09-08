@@ -95,7 +95,7 @@ Storage limits, disk reserve, retention, and frame-size estimates can be changed
 - Camera URLs default to HTTP or HTTPS literal private, loopback, or link-local addresses.
 - TLS certificates are checked unless a camera profile explicitly disables validation.
 - Camera passwords are protected with ASP.NET Core Data Protection.
-- Snapshot responses are bounded and validated as JPEG images.
+- Snapshot responses are bounded and validated as JPEG or PNG images.
 - State-changing requests require antiforgery validation.
 
 Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECURITY.md) for deployment assumptions and vulnerability reporting.

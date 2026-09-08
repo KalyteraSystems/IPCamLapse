@@ -31,6 +31,10 @@ public interface ICameraService
 
 public sealed class CameraService : ICameraService
 {
+    private static readonly byte[] PngSignature = [
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+    ];
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICameraUrlPolicy _urlPolicy;
     private readonly CameraAccessOptions _options;
@@ -109,6 +113,7 @@ public sealed class CameraService : ICameraService
             if (mediaType is not null &&
                 !mediaType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase) &&
                 !mediaType.Equals("image/jpg", StringComparison.OrdinalIgnoreCase) &&
+                !mediaType.Equals("image/png", StringComparison.OrdinalIgnoreCase) &&
                 !mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
             {
                 return CameraCaptureResult.Failed(
@@ -120,14 +125,27 @@ public sealed class CameraService : ICameraService
             var data = await ReadBoundedAsync(response.Content, _options.MaxSnapshotBytes, cancellationToken);
             if (data is null)
                 return CameraCaptureResult.Failed("Snapshot exceeds the configured size limit.", stopwatch.Elapsed);
-            if (data.Length < 3 || data[0] != 0xff || data[1] != 0xd8 || data[2] != 0xff)
-                return CameraCaptureResult.Failed("Camera did not return a JPEG image.", stopwatch.Elapsed);
+
+            var isJpeg = data.Length >= 3 && data[0] == 0xff && data[1] == 0xd8 && data[2] == 0xff;
+            var isPng = data.AsSpan().StartsWith(PngSignature);
+            var declaredJpeg = mediaType?.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase) == true ||
+                               mediaType?.Equals("image/jpg", StringComparison.OrdinalIgnoreCase) == true;
+            var declaredPng = mediaType?.Equals("image/png", StringComparison.OrdinalIgnoreCase) == true;
+
+            if ((declaredJpeg && !isJpeg) || (declaredPng && !isPng) || (!isJpeg && !isPng))
+                return CameraCaptureResult.Failed(
+                    "Camera response content type does not match a complete JPEG or PNG signature.",
+                    stopwatch.Elapsed,
+                    response.StatusCode);
+
+            var contentType = isPng ? "image/png" : "image/jpeg";
+            var extension = isPng ? ".png" : ".jpg";
 
             return new CameraCaptureResult(
                 true,
                 data,
-                "image/jpeg",
-                ".jpg",
+                contentType,
+                extension,
                 null,
                 response.StatusCode,
                 stopwatch.Elapsed);
@@ -142,12 +160,18 @@ public sealed class CameraService : ICameraService
         }
         catch (HttpRequestException exception)
         {
-            _logger.LogWarning(exception, "Camera request failed for {CameraEndpoint}", endpointLabel);
+            _logger.LogWarning(
+                "Camera request failed for {CameraEndpoint} ({ExceptionType})",
+                endpointLabel,
+                exception.GetType().Name);
             return CameraCaptureResult.Failed("Camera connection failed.", stopwatch.Elapsed);
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Snapshot capture failed for {CameraEndpoint}", endpointLabel);
+            _logger.LogError(
+                "Snapshot capture failed for {CameraEndpoint} ({ExceptionType})",
+                endpointLabel,
+                exception.GetType().Name);
             return CameraCaptureResult.Failed("Snapshot capture failed.", stopwatch.Elapsed);
         }
     }
