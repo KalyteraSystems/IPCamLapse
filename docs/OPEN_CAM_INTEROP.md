@@ -4,7 +4,9 @@ OpenCamInterop is an experimental standalone interoperability project consumed b
 
 Its EventLab workflow inspects a problematic event, verifies a sanitized corpus, replays it deterministically in CI, and turns a hardware-specific quirk into an executable compatibility test. It does not rename or replace IPCamLapse.
 
-## What is implemented
+This page describes IPCamLapse's embedded snapshot. Its [library](../OpenCamInterop/OpenCamInterop.csproj) and [CLI](../OpenCamInterop/tools/OpenCamInterop.Tool/OpenCamInterop.Tool.csproj) project files still declare `0.1.0-alpha.1`; the standalone `v0.1.0-alpha.3` release has not been imported. In particular, this tree has no Scrypted adapter. Standalone release activity does not update the embedded source automatically.
+
+## What the embedded snapshot implements
 
 - A packable .NET 10 `OpenCamInterop` library using the official CloudEvents C# JSON formatter
 - A pure Frigate `events` transformer for `new`, `update`, and `end` object messages
@@ -35,6 +37,8 @@ Frigate occurrence time is `end_time` for `end`, otherwise `frame_time` when pre
 
 Only an ONVIF motion topic in the standard ONVIF topic namespace and a recognized Concrete or ConcreteSet dialect is promoted to `signal.changed.v1`. `Initialized` and `Deleted` property operations remain generic notifications, so a synchronization snapshot cannot be mistaken for a fresh motion trigger.
 
+For the embedded EventLab, use the [checked-in fixture manifest schema](../OpenCamInterop/schemas/v1/fixture-manifest.schema.json). It accepts only Frigate and ONVIF cases. Its `expectedEventTypes` array, when used, must be nonempty and contain unique entries. Standalone support for zero-event and repeated-event expectations is not present in this snapshot, even though both manifests use schema version `1`.
+
 ## Privacy and trust boundary
 
 The adapters are designed for untrusted payloads, but fixture authors still own the final sanitization decision.
@@ -56,15 +60,19 @@ A worthwhile fixture represents a behavior that was not already covered. Useful 
 2. Submit it to the [standalone OpenCamInterop repository](https://github.com/KalyteraSystems/OpenCamInterop) beneath `fixtures/v1/{adapter}`.
 3. Register the case in `fixtures/v1/manifest.json` with an expected event sequence or diagnostic.
 4. Explain the interoperability gap and the information deliberately removed during sanitization.
-5. Run the standalone verifier and full checks from its `CONTRIBUTING.md`.
+5. Run the standalone verifier and full checks from its [contribution guide](https://github.com/KalyteraSystems/OpenCamInterop/blob/main/CONTRIBUTING.md).
 
 A model number, compatibility-table row, or mechanically split fixture is not enough by itself. One focused contribution should describe one distinct behavior and its executable expectation.
+
+Refreshing the embedded copy is a separate reviewed integration change: record the standalone commit being imported, validate the IPCamLapse consumer and embedded corpus, then update this page to match the resulting tree. Follow the [source-update policy](../CONTRIBUTING.md#opencaminterop-source); submitting a fixture upstream does not imply that IPCamLapse already includes it.
 
 ## Non-goals and honest status
 
 This is not an ONVIF conformance suite, certification, complete semantic ontology, NVR, viewer, camera-control system, or production network bridge. ONVIF and vendor names identify input formats; they do not imply endorsement. The fixtures are synthetic and do not claim physical-device coverage yet.
 
-The standalone split is based on an executable contribution surface: a strict manifest, an offline inspect/verify/replay CLI, generic tests, and independent CI. IPCamLapse remains the first-party source consumer. The current standalone evidence is still only four synthetic cases across three payloads and two input families, with zero externally derived cases and zero independent consumers; the split itself is not counted as adoption.
+The embedded [manifest](../OpenCamInterop/fixtures/v1/manifest.json) contains four synthetic cases across three payloads and two input families, Frigate and ONVIF. Its [generated matrix](../OpenCamInterop/fixtures/v1/COMPATIBILITY.md) describes that local corpus only.
+
+Standalone development has continued beyond this snapshot. Consult its [current project status](https://github.com/KalyteraSystems/OpenCamInterop/blob/main/docs/PROJECT_STATUS.md) and [releases](https://github.com/KalyteraSystems/OpenCamInterop/releases) for upstream capabilities, corpus counts, and adoption evidence. IPCamLapse remains a first-party source consumer; neither the split nor an embedded-source update is independent adoption evidence.
 
 ## Protocol references
 
