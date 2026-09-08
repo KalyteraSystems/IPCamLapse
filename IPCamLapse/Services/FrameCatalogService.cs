@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using IPCamLapse.Models;
@@ -10,8 +11,14 @@ public interface IFrameCatalogService
 {
     Task AppendEventAsync(string sessionId, CaptureEvent captureEvent, CancellationToken cancellationToken = default);
     Task<FramePage> GetFramesAsync(string sessionId, int offset, int limit);
-    Task<IReadOnlyList<CaptureEvent>> GetEventsAsync(string sessionId, int limit);
-    Task<IReadOnlyList<SequencedCaptureEvent>> GetEventRecordsAsync(string sessionId, int limit);
+    Task<IReadOnlyList<CaptureEvent>> GetEventsAsync(
+        string sessionId,
+        int limit,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SequencedCaptureEvent>> GetEventRecordsAsync(
+        string sessionId,
+        int limit,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> GetImagePathsAsync(string sessionId, int? startFrame = null, int? endFrame = null);
     Task<string?> ResolveFramePathAsync(string sessionId, string fileName);
 }
@@ -66,16 +73,22 @@ public sealed class FrameCatalogService : IFrameCatalogService
         return new FramePage(items, offset, limit, frames.Count);
     }
 
-    public async Task<IReadOnlyList<CaptureEvent>> GetEventsAsync(string sessionId, int limit)
+    public async Task<IReadOnlyList<CaptureEvent>> GetEventsAsync(
+        string sessionId,
+        int limit,
+        CancellationToken cancellationToken = default)
     {
-        var records = await GetEventRecordsAsync(sessionId, limit);
+        var records = await GetEventRecordsAsync(sessionId, limit, cancellationToken);
         return records
             .Reverse()
             .Select(record => record.Event)
             .ToList();
     }
 
-    public async Task<IReadOnlyList<SequencedCaptureEvent>> GetEventRecordsAsync(string sessionId, int limit)
+    public async Task<IReadOnlyList<SequencedCaptureEvent>> GetEventRecordsAsync(
+        string sessionId,
+        int limit,
+        CancellationToken cancellationToken = default)
     {
         var session = await _sessions.GetSessionAsync(sessionId);
         if (session?.StoragePath is null)
@@ -85,30 +98,80 @@ public sealed class FrameCatalogService : IFrameCatalogService
             return Array.Empty<SequencedCaptureEvent>();
 
         var take = Math.Clamp(limit, 1, 500);
-        var records = new Queue<SequencedCaptureEvent>(take);
-        long sequence = 0;
-        await foreach (var line in File.ReadLinesAsync(path))
-        {
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
+        const int bufferSize = 4 * 1024;
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite,
+            bufferSize,
+            FileOptions.Asynchronous | FileOptions.RandomAccess);
+        var snapshotLength = stream.Length;
+        var offset = snapshotLength;
+        var buffer = new byte[bufferSize];
+        var reversedLine = new List<byte>();
+        var selected = new List<(long FromEnd, CaptureEvent Event)>(take);
+        long nonBlankFromEnd = 0;
 
-            sequence++;
+        while (offset > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var readSize = (int)Math.Min(buffer.Length, offset);
+            offset -= readSize;
+            stream.Position = offset;
+            await stream.ReadExactlyAsync(buffer.AsMemory(0, readSize), cancellationToken);
+            for (var index = readSize - 1; index >= 0; index--)
+            {
+                if (buffer[index] == (byte)'\n')
+                {
+                    ProcessCandidate(reversedLine);
+                    reversedLine.Clear();
+                }
+                else
+                {
+                    reversedLine.Add(buffer[index]);
+                }
+            }
+        }
+        ProcessCandidate(reversedLine);
+
+        return selected
+            .AsEnumerable()
+            .Reverse()
+            .Select(item => new SequencedCaptureEvent(
+                nonBlankFromEnd - item.FromEnd + 1,
+                item.Event))
+            .ToList();
+
+        void ProcessCandidate(List<byte> reversedBytes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (reversedBytes.Count == 0)
+                return;
+
+            var bytes = reversedBytes.ToArray();
+            Array.Reverse(bytes);
+            var length = bytes.Length;
+            if (length > 0 && bytes[length - 1] == (byte)'\r')
+                length--;
+            var line = Encoding.UTF8.GetString(bytes, 0, length);
+            if (string.IsNullOrWhiteSpace(line))
+                return;
+
+            nonBlankFromEnd++;
+            if (selected.Count == take)
+                return;
+
             try
             {
                 var captureEvent = JsonSerializer.Deserialize<CaptureEvent>(line);
                 if (captureEvent is not null)
-                {
-                    if (records.Count == take)
-                        records.Dequeue();
-                    records.Enqueue(new SequencedCaptureEvent(sequence, captureEvent));
-                }
+                    selected.Add((nonBlankFromEnd, captureEvent));
             }
             catch (JsonException)
             {
             }
         }
-
-        return records.ToList();
     }
 
     public async Task<IReadOnlyList<string>> GetImagePathsAsync(
