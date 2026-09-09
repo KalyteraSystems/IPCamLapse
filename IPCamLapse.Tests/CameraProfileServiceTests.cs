@@ -149,6 +149,8 @@ public sealed class CameraProfileServiceTests : IDisposable
         Assert.Contains("Could not read password", logger.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(storedSecret, logger.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("SENTINEL", logger.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(storedSecret, logger.CapturedException?.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("SENTINEL", logger.CapturedException?.ToString(), StringComparison.Ordinal);
     }
 
     private CameraProfileService CreateService(
@@ -194,6 +196,7 @@ public sealed class CameraProfileServiceTests : IDisposable
     private sealed class RecordingLogger<T> : ILogger<T>
     {
         public string Message { get; private set; } = string.Empty;
+        public Exception? CapturedException { get; private set; }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
@@ -204,7 +207,12 @@ public sealed class CameraProfileServiceTests : IDisposable
             EventId eventId,
             TState state,
             Exception? exception,
-            Func<TState, Exception?, string> formatter) =>
+            Func<TState, Exception?, string> formatter)
+        {
+            CapturedException = exception;
             Message = formatter(state, exception);
+            if (exception is not null)
+                Message += Environment.NewLine + exception;
+        }
     }
 }
