@@ -235,6 +235,7 @@ public sealed class CameraServiceTests
         Assert.False(result.Success);
         Assert.DoesNotContain(sentinel, result.Error, StringComparison.Ordinal);
         Assert.DoesNotContain(sentinel, logger.RenderedRecord, StringComparison.Ordinal);
+        Assert.DoesNotContain(sentinel, logger.CapturedException?.ToString(), StringComparison.Ordinal);
     }
 
     private static CameraService CreateService(
@@ -299,6 +300,8 @@ public sealed class CameraServiceTests
     {
         public string RenderedRecord { get; private set; } = string.Empty;
 
+        public Exception? CapturedException { get; private set; }
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => true;
@@ -310,6 +313,7 @@ public sealed class CameraServiceTests
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
+            CapturedException = exception;
             RenderedRecord = formatter(state, exception);
             if (exception is not null)
                 RenderedRecord += Environment.NewLine + exception;
