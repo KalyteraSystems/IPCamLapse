@@ -62,44 +62,55 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
     {
         if (!schedule.HasWindow)
             return new ScheduleAvailability(true, null);
-        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _timeZone);
-        if (IsInsideWindow(localNow.TimeOfDay, schedule.WindowStartLocal!.Value, schedule.WindowEndLocal!.Value))
-            return new ScheduleAvailability(true, null);
-        var nextLocal = NextWindowStart(localNow, schedule.WindowStartLocal.Value);
-        return new ScheduleAvailability(false, ConvertWallTimeToUtc(nextLocal));
+        return EvaluateRecurring(schedule, utcNow, _ => true);
     }
 
     private ScheduleAvailability EvaluateWeekly(CaptureSchedule schedule, DateTime utcNow)
     {
-        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _timeZone);
-        var start = schedule.WindowStartLocal ?? TimeSpan.Zero;
-        var end = schedule.WindowEndLocal ?? TimeSpan.FromDays(1);
-        var overnight = start >= end;
-        var effectiveDay = overnight && localNow.TimeOfDay < end
-            ? localNow.AddDays(-1).DayOfWeek
-            : localNow.DayOfWeek;
-        if (effectiveDay == schedule.WeeklyDay && IsInsideWindow(localNow.TimeOfDay, start, end))
-            return new ScheduleAvailability(true, null);
-
-        for (var dayOffset = 0; dayOffset <= 7; dayOffset++)
-        {
-            var date = localNow.Date.AddDays(dayOffset);
-            if (date.DayOfWeek != schedule.WeeklyDay)
-                continue;
-            var candidate = date + start;
-            if (candidate > localNow)
-                return new ScheduleAvailability(false, ConvertWallTimeToUtc(candidate));
-        }
-
-        var fallback = localNow.Date.AddDays(7) + start;
-        return new ScheduleAvailability(false, ConvertWallTimeToUtc(fallback));
+        return EvaluateRecurring(schedule, utcNow, date => date.DayOfWeek == schedule.WeeklyDay);
     }
 
-    private static bool IsInsideWindow(TimeSpan current, TimeSpan start, TimeSpan end)
+    private ScheduleAvailability EvaluateRecurring(CaptureSchedule schedule, DateTime utcNow, Func<DateTime, bool> includesDate)
     {
-        if (start < end)
-            return current >= start && current < end;
-        return current >= start || current < end;
+        var localToday = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _timeZone).Date;
+        var start = schedule.WindowStartLocal!.Value;
+        var end = schedule.WindowEndLocal!.Value;
+        DateTime? next = null;
+
+        for (var offset = -1; offset <= 8; offset++)
+        {
+            var date = localToday.AddDays(offset);
+            if (!includesDate(date))
+                continue;
+
+            var startWall = date + start;
+            var endWall = date + end + (end <= start ? TimeSpan.FromDays(1) : TimeSpan.Zero);
+            foreach (var startUtc in WallTimeCandidates(startWall))
+            {
+                var endUtc = WallTimeCandidates(endWall).FirstOrDefault(candidate => candidate > startUtc);
+                if (endUtc == default)
+                    continue;
+                if (utcNow >= startUtc && utcNow < endUtc)
+                    return new ScheduleAvailability(true, null);
+                if (startUtc > utcNow && (!next.HasValue || startUtc < next.Value))
+                    next = startUtc;
+            }
+        }
+
+        return new ScheduleAvailability(false, next);
+    }
+
+    private IEnumerable<DateTime> WallTimeCandidates(DateTime wallTime)
+    {
+        var normalized = DateTime.SpecifyKind(wallTime, DateTimeKind.Unspecified);
+        if (_timeZone.IsInvalidTime(normalized))
+            return [ConvertWallTimeToUtc(normalized)];
+        if (!_timeZone.IsAmbiguousTime(normalized))
+            return [TimeZoneInfo.ConvertTimeToUtc(normalized, _timeZone)];
+
+        return _timeZone.GetAmbiguousTimeOffsets(normalized)
+            .Select(offset => DateTime.SpecifyKind(normalized - offset, DateTimeKind.Utc))
+            .Order();
     }
 
     private static DateTime NextWindowStart(DateTime localNow, TimeSpan start)

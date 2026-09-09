@@ -113,6 +113,34 @@ public sealed class CaptureScheduleServiceTests
     }
 
     [Fact]
+    public void SecondFallBackHourSelectsItsOwnFutureRecurringStart()
+    {
+        var result = _service.GetAvailability(new CaptureSchedule
+        {
+            Frequency = ScheduleFrequency.Daily,
+            WindowStartLocal = TimeSpan.FromHours(1.5),
+            WindowEndLocal = TimeSpan.FromHours(1.75)
+        }, new DateTime(2026, 11, 1, 6, 20, 0, DateTimeKind.Utc));
+
+        Assert.False(result.Active);
+        Assert.Equal(new DateTime(2026, 11, 1, 6, 30, 0, DateTimeKind.Utc), result.NextStartUtc);
+    }
+
+    [Fact]
+    public void SpringForwardGapDoesNotActivateBeforeAdjustedStart()
+    {
+        var result = _service.GetAvailability(new CaptureSchedule
+        {
+            Frequency = ScheduleFrequency.Daily,
+            WindowStartLocal = TimeSpan.FromHours(2.5),
+            WindowEndLocal = TimeSpan.FromHours(4)
+        }, new DateTime(2026, 3, 8, 7, 10, 0, DateTimeKind.Utc));
+
+        Assert.False(result.Active);
+        Assert.Equal(new DateTime(2026, 3, 8, 7, 30, 0, DateTimeKind.Utc), result.NextStartUtc);
+    }
+
+    [Fact]
     public void UtcZoneRemainsDeterministic()
     {
         var service = new CaptureScheduleService(TimeZoneInfo.Utc);
