@@ -85,6 +85,7 @@ Environment variables use double underscores, such as `Storage__DataPath=/srv/ip
 | `CameraAccess:AllowHostnames` | `false` | Allow DNS hostnames in camera URLs |
 | `CameraAccess:AllowPublicAddresses` | `false` | Allow public camera addresses |
 | `CameraAccess:MaxSnapshotBytes` | `20971520` | Maximum snapshot response size |
+| `CameraAccess:RequestTimeoutSeconds` | `30` | Camera HTTP timeout in seconds (1–120) |
 
 Storage limits, disk reserve, retention, and frame-size estimates can be changed in the web interface.
 
@@ -98,6 +99,12 @@ Storage limits, disk reserve, retention, and frame-size estimates can be changed
 - State-changing requests require antiforgery validation.
 
 Do not bind IPCamLapse directly to a LAN or the internet. See [SECURITY.md](SECURITY.md) for deployment assumptions and vulnerability reporting.
+
+`GET /healthz` is the container liveness probe: it returns an empty `204` response
+and deliberately performs no storage, FFmpeg, camera, or diagnostic work. The
+System page and `/api/system/health` remain the detailed readiness and operator
+diagnostic checks. The liveness path is still subject to the same local-only
+access middleware as the rest of the application.
 
 ## Data and upgrades
 
