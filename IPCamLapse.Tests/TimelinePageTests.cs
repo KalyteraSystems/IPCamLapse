@@ -29,7 +29,7 @@ public sealed class TimelinePageTests
             {
                 var size = number switch
                 {
-                    24 => 2_048,
+                    24 => 2_560,
                     25 => 1_572_864,
                     _ => 1
                 };
@@ -48,11 +48,13 @@ public sealed class TimelinePageTests
             Assert.Contains("status.textContent = loadMoreError;", content, StringComparison.Ordinal);
             Assert.Contains("download.innerHTML = '<i class=\"bi bi-download\" aria-hidden=\"true\"></i>';", content, StringComparison.Ordinal);
             Assert.DoesNotContain("firstElementChild.setAttribute", content, StringComparison.Ordinal);
-            Assert.Contains("2 KB", content, StringComparison.Ordinal);
+            Assert.Contains("3 KB", content, StringComparison.Ordinal);
             Assert.Contains("1.5 MB", content, StringComparison.Ordinal);
             Assert.Contains("${formatFrameSize(frame.sizeBytes)}", content, StringComparison.Ordinal);
             Assert.Contains("if (bytes >= 1024 ** 2)", content, StringComparison.Ordinal);
             Assert.Contains("Math.round(bytes / 1024)", content, StringComparison.Ordinal);
+            Assert.Contains("MidpointRounding.AwayFromZero", content, StringComparison.Ordinal);
+            Assert.Contains("CultureInfo.InvariantCulture", content, StringComparison.Ordinal);
         }
         finally
         {

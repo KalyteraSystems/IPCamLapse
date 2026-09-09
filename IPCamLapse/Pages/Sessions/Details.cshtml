@@ -527,12 +527,12 @@
     {
         if (bytes >= 1024L * 1024 * 1024) return $"{bytes / 1024d / 1024d / 1024d:F1} GB";
         if (bytes >= 1024L * 1024) return $"{bytes / 1024d / 1024d:F1} MB";
-        return $"{bytes / 1024d:F0} KB";
+        return $"{Math.Round(bytes / 1024d, 0, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} KB";
     }
 
     string FormatFrameSize(long bytes) => bytes >= 1024L * 1024
         ? $"{bytes / 1024d / 1024d:F1} MB"
-        : $"{bytes / 1024d:F0} KB";
+        : $"{Math.Round(bytes / 1024d, 0, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} KB";
 
     string FormatPercent(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
