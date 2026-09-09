@@ -9,6 +9,29 @@ namespace IPCamLapse.Tests;
 public sealed class TimelinePageTests
 {
     [Fact]
+    public async Task DynamicFrameCardsUseTheSameMidpointFormattingContract()
+    {
+        var page = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "IPCamLapse", "Pages", "Sessions", "Details.cshtml"));
+        var script = Path.Combine(AppContext.BaseDirectory, "TimelineDynamicCardTest.js");
+        using var process = new System.Diagnostics.Process
+        {
+            StartInfo = new System.Diagnostics.ProcessStartInfo("node", $"\"{script}\" \"{page}\"")
+            {
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            }
+        };
+
+        process.Start();
+        await process.WaitForExitAsync();
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+
+        Assert.True(process.ExitCode == 0, $"Dynamic card test failed: {error}{output}");
+    }
+
+    [Fact]
     public async Task LoadMoreMarkupProvidesRetryStatusAndAccessibleDynamicIcons()
     {
         var root = CreateTemporaryRoot();

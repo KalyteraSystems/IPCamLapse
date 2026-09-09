@@ -531,7 +531,7 @@
     }
 
     string FormatFrameSize(long bytes) => bytes >= 1024L * 1024
-        ? $"{bytes / 1024d / 1024d:F1} MB"
+        ? $"{(bytes / 1024d / 1024d).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} MB"
         : $"{Math.Round(bytes / 1024d, 0, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} KB";
 
     string FormatPercent(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
