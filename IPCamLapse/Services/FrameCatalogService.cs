@@ -139,7 +139,7 @@ public sealed class FrameCatalogService : IFrameCatalogService
         if (!hasIndex || selected.Count < take)
             ProcessCandidate(reversedLine);
 
-        var totalNonBlank = hasIndex ? cachedIndex.NonBlankLineCount : nonBlankFromEnd;
+        var totalNonBlank = hasIndex ? cachedIndex!.NonBlankLineCount : nonBlankFromEnd;
         if (!hasIndex)
             _eventLogIndexes[path] = new EventLogIndex(snapshotLength, totalNonBlank);
 
