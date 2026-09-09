@@ -30,6 +30,7 @@ public sealed class FrameCatalogService : IFrameCatalogService
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly ICaptureSessionService _sessions;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _eventLocks = new();
+    private readonly ConcurrentDictionary<string, EventLogIndex> _eventLogIndexes = new();
 
     public FrameCatalogService(ICaptureSessionService sessions)
     {
@@ -107,13 +108,15 @@ public sealed class FrameCatalogService : IFrameCatalogService
             bufferSize,
             FileOptions.Asynchronous | FileOptions.RandomAccess);
         var snapshotLength = stream.Length;
+        var hasIndex = _eventLogIndexes.TryGetValue(path, out var cachedIndex) &&
+            cachedIndex.Length == snapshotLength;
         var offset = snapshotLength;
         var buffer = new byte[bufferSize];
         var reversedLine = new List<byte>();
         var selected = new List<(long FromEnd, CaptureEvent Event)>(take);
         long nonBlankFromEnd = 0;
 
-        while (offset > 0)
+        while (offset > 0 && (!hasIndex || selected.Count < take))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var readSize = (int)Math.Min(buffer.Length, offset);
@@ -133,13 +136,18 @@ public sealed class FrameCatalogService : IFrameCatalogService
                 }
             }
         }
-        ProcessCandidate(reversedLine);
+        if (!hasIndex || selected.Count < take)
+            ProcessCandidate(reversedLine);
+
+        var totalNonBlank = hasIndex ? cachedIndex.NonBlankLineCount : nonBlankFromEnd;
+        if (!hasIndex)
+            _eventLogIndexes[path] = new EventLogIndex(snapshotLength, totalNonBlank);
 
         return selected
             .AsEnumerable()
             .Reverse()
             .Select(item => new SequencedCaptureEvent(
-                nonBlankFromEnd - item.FromEnd + 1,
+                totalNonBlank - item.FromEnd + 1,
                 item.Event))
             .ToList();
 
@@ -173,6 +181,8 @@ public sealed class FrameCatalogService : IFrameCatalogService
             }
         }
     }
+
+    private sealed record EventLogIndex(long Length, long NonBlankLineCount);
 
     public async Task<IReadOnlyList<string>> GetImagePathsAsync(
         string sessionId,
