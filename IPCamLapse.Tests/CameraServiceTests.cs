@@ -218,7 +218,7 @@ public sealed class CameraServiceTests
     {
         const string sentinel = "SENTINEL-DO-NOT-LOG";
         var logger = new RecordingLogger();
-        var expectedException = isHttpRequestException
+        Exception expectedException = isHttpRequestException
             ? new HttpRequestException($"failed request containing {sentinel}")
             : new InvalidOperationException($"failed operation containing {sentinel}");
         var factory = new RecordingHttpClientFactory(_ => throw expectedException);
