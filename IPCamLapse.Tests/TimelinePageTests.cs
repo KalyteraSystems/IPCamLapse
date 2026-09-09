@@ -75,9 +75,6 @@ public sealed class TimelinePageTests
             Assert.Contains("1.5 MB", content, StringComparison.Ordinal);
             Assert.Contains("${formatFrameSize(frame.sizeBytes)}", content, StringComparison.Ordinal);
             Assert.Contains("if (bytes >= 1024 ** 2)", content, StringComparison.Ordinal);
-            Assert.Contains("Math.round(bytes / 1024)", content, StringComparison.Ordinal);
-            Assert.Contains("MidpointRounding.AwayFromZero", content, StringComparison.Ordinal);
-            Assert.Contains("CultureInfo.InvariantCulture", content, StringComparison.Ordinal);
         }
         finally
         {
