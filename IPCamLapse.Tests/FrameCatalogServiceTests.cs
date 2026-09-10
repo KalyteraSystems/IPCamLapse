@@ -81,25 +81,25 @@ public sealed class FrameCatalogServiceTests : IDisposable
         Assert.Equal("event-1501", fiveHundred[^1].Message);
     }
 
-	[Fact]
-	public async Task AppendMaintainsIndexAndNextTailReadDoesNotScanHistory()
-	{
-		await using (var stream = new FileStream(_eventsPath, FileMode.CreateNew, FileAccess.Write))
-		await using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
-		{
-			for (var number = 1; number <= 2_000; number++)
-				await writer.WriteLineAsync(JsonSerializer.Serialize(Event($"event-{number}", DateTime.UtcNow)));
-		}
+    [Fact]
+    public async Task AppendMaintainsIndexAndNextTailReadDoesNotScanHistory()
+    {
+        await using (var stream = new FileStream(_eventsPath, FileMode.CreateNew, FileAccess.Write))
+        await using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+        {
+            for (var number = 1; number <= 2_000; number++)
+                await writer.WriteLineAsync(JsonSerializer.Serialize(Event($"event-{number}", DateTime.UtcNow)));
+        }
 
-		await _service.GetEventRecordsAsync(SessionId, 1);
-		await _service.AppendEventAsync(SessionId, Event("event-2001", DateTime.UtcNow));
-		var records = await _service.GetEventRecordsAsync(SessionId, 1);
+        await _service.GetEventRecordsAsync(SessionId, 1);
+        await _service.AppendEventAsync(SessionId, Event("event-2001", DateTime.UtcNow));
+        var records = await _service.GetEventRecordsAsync(SessionId, 1);
 
-		Assert.Single(records);
-		Assert.Equal(2_001, records[0].Sequence);
-		Assert.Equal("event-2001", records[0].Event.Message);
-		Assert.True(_service.LastEventLogBytesRead <= 4_096);
-	}
+        Assert.Single(records);
+        Assert.Equal(2_001, records[0].Sequence);
+        Assert.Equal("event-2001", records[0].Event.Message);
+        Assert.True(_service.LastEventLogBytesRead <= 4_096);
+    }
 
     [Fact]
     public async Task HonorsRequestCancellationInTailReader()

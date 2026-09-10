@@ -25,7 +25,7 @@ public interface IFrameCatalogService
 
 public sealed class FrameCatalogService : IFrameCatalogService
 {
-	internal long LastEventLogBytesRead { get; private set; }
+    internal long LastEventLogBytesRead { get; private set; }
     private static readonly Regex FramePattern = new(
         "^frame_(?<number>[0-9]+)_(?<timestamp>[0-9]{8}_[0-9]{6}(?:_[0-9]{3})?)\\.(?:jpg|png)$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -50,16 +50,16 @@ public sealed class FrameCatalogService : IFrameCatalogService
         await gate.WaitAsync(cancellationToken);
         try
         {
-			var path = Path.Combine(session.StoragePath, "events.jsonl");
-			var previousLength = File.Exists(path) ? new FileInfo(path).Length : 0;
+            var path = Path.Combine(session.StoragePath, "events.jsonl");
+            var previousLength = File.Exists(path) ? new FileInfo(path).Length : 0;
             var line = JsonSerializer.Serialize(captureEvent) + Environment.NewLine;
             await File.AppendAllTextAsync(
-				path,
+                path,
                 line,
                 cancellationToken);
-			var newLength = new FileInfo(path).Length;
-			if (_eventLogIndexes.TryGetValue(path, out var index) && index.Length == previousLength)
-				_eventLogIndexes[path] = new EventLogIndex(newLength, index.NonBlankLineCount + 1);
+            var newLength = new FileInfo(path).Length;
+            if (_eventLogIndexes.TryGetValue(path, out var index) && index.Length == previousLength)
+                _eventLogIndexes[path] = new EventLogIndex(newLength, index.NonBlankLineCount + 1);
         }
         finally
         {
@@ -121,7 +121,7 @@ public sealed class FrameCatalogService : IFrameCatalogService
         var reversedLine = new List<byte>();
         var selected = new List<(long FromEnd, CaptureEvent Event)>(take);
         long nonBlankFromEnd = 0;
-		LastEventLogBytesRead = 0;
+        LastEventLogBytesRead = 0;
 
         while (offset > 0 && (!hasIndex || selected.Count < take))
         {
@@ -130,7 +130,7 @@ public sealed class FrameCatalogService : IFrameCatalogService
             offset -= readSize;
             stream.Position = offset;
             await stream.ReadExactlyAsync(buffer.AsMemory(0, readSize), cancellationToken);
-			LastEventLogBytesRead += readSize;
+            LastEventLogBytesRead += readSize;
             for (var index = readSize - 1; index >= 0; index--)
             {
                 if (buffer[index] == (byte)'\n')
