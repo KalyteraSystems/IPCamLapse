@@ -54,6 +54,8 @@ public sealed class TimelinePageTests
                 {
                     24 => 2_560,
                     25 => 1_572_864,
+                    23 => 2_686_976,
+					22 => 1_310_720,
                     _ => 1
                 };
                 await File.WriteAllBytesAsync(
@@ -73,8 +75,11 @@ public sealed class TimelinePageTests
             Assert.DoesNotContain("firstElementChild.setAttribute", content, StringComparison.Ordinal);
             Assert.Contains("3 KB", content, StringComparison.Ordinal);
             Assert.Contains("1.5 MB", content, StringComparison.Ordinal);
+            Assert.Contains("2.6 MB", content, StringComparison.Ordinal);
+			Assert.Contains("1.3 MB", content, StringComparison.Ordinal);
             Assert.Contains("${formatFrameSize(frame.sizeBytes)}", content, StringComparison.Ordinal);
-            Assert.Contains("if (bytes >= 1024 ** 2)", content, StringComparison.Ordinal);
+            Assert.Contains("roundToOneDecimal(bytes / 1024 ** 2).toFixed(1)", content, StringComparison.Ordinal);
+            Assert.Contains("Math.floor(bytes / 1024 + 0.5)", content, StringComparison.Ordinal);
         }
         finally
         {
