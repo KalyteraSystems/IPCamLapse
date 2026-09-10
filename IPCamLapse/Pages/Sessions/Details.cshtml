@@ -419,8 +419,12 @@
         }
 
         function formatFrameSize(bytes) {
-            if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-            return `${Math.round(bytes / 1024)} KB`;
+            if (bytes >= 1024 ** 2) return `${roundToOneDecimal(bytes / 1024 ** 2).toFixed(1)} MB`;
+            return `${Math.floor(bytes / 1024 + 0.5)} KB`;
+        }
+
+        function roundToOneDecimal(value) {
+            return Math.floor(value * 10 + 0.5) / 10;
         }
 
         function updateStatus(data) {
@@ -531,7 +535,7 @@
     }
 
     string FormatFrameSize(long bytes) => bytes >= 1024L * 1024
-        ? $"{(bytes / 1024d / 1024d).ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} MB"
+        ? $"{Math.Round(bytes / 1024d / 1024d, 1, MidpointRounding.AwayFromZero).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} MB"
         : $"{Math.Round(bytes / 1024d, 0, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} KB";
 
     string FormatPercent(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
