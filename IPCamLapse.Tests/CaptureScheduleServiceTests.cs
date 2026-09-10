@@ -126,6 +126,22 @@ public sealed class CaptureScheduleServiceTests
         Assert.Equal(new DateTime(2026, 11, 1, 6, 30, 0, DateTimeKind.Utc), result.NextStartUtc);
     }
 
+	[Theory]
+	[InlineData(ScheduleFrequency.Daily)]
+	[InlineData(ScheduleFrequency.Weekly)]
+	public void WindowStartingBeforeRepeatedHourIncludesSecondOccurrence(ScheduleFrequency frequency)
+	{
+		var result = _service.GetAvailability(new CaptureSchedule
+		{
+			Frequency = frequency,
+			WeeklyDay = DayOfWeek.Sunday,
+			WindowStartLocal = TimeSpan.FromMinutes(30),
+			WindowEndLocal = TimeSpan.FromHours(1.25)
+		}, new DateTime(2026, 11, 1, 6, 10, 0, DateTimeKind.Utc));
+
+		Assert.True(result.Active);
+	}
+
     [Fact]
     public void SpringForwardGapDoesNotActivateBeforeAdjustedStart()
     {

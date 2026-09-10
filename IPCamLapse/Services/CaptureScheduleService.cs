@@ -85,9 +85,14 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
 
             var startWall = date + start;
             var endWall = date + end + (end <= start ? TimeSpan.FromDays(1) : TimeSpan.Zero);
-            foreach (var startUtc in WallTimeCandidates(startWall))
+			var startCandidates = WallTimeCandidates(startWall).ToList();
+			var endCandidates = WallTimeCandidates(endWall).ToList();
+			foreach (var startUtc in startCandidates)
             {
-                var endUtc = WallTimeCandidates(endWall).FirstOrDefault(candidate => candidate > startUtc);
+				var matchingEnds = endCandidates.Where(candidate => candidate > startUtc);
+				var endUtc = startCandidates.Count == 1
+					? matchingEnds.LastOrDefault()
+					: matchingEnds.FirstOrDefault();
                 if (endUtc == default)
                     continue;
                 if (utcNow >= startUtc && utcNow < endUtc)
