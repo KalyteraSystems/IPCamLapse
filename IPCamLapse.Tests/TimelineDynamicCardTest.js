@@ -36,6 +36,7 @@ global.document = {
 };
 
 const page = fs.readFileSync(process.argv[2], 'utf8');
+vm.runInThisContext(functionSource(page, 'roundToOneDecimal'));
 vm.runInThisContext(functionSource(page, 'formatFrameSize'));
 vm.runInThisContext(functionSource(page, 'addFrame'));
 
@@ -53,3 +54,4 @@ function dynamicLabelFor(sizeBytes) {
 
 if (!dynamicLabelFor(2_560).endsWith('3 KB')) throw new Error('2.5 KiB dynamic card must render as 3 KB');
 if (!dynamicLabelFor(1_572_864).endsWith('1.5 MB')) throw new Error('1.5 MiB dynamic card must render as 1.5 MB');
+if (!dynamicLabelFor(1_310_720).endsWith('1.3 MB')) throw new Error('1.25 MiB dynamic card must render as 1.3 MB');
