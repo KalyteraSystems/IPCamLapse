@@ -88,6 +88,9 @@ Environment variables use double underscores, such as `Storage__DataPath=/srv/ip
 | `CameraAccess:RequestTimeoutSeconds` | `30` | Camera HTTP timeout in seconds (1–120) |
 
 Storage limits, disk reserve, retention, and frame-size estimates can be changed in the web interface.
+The Storage page previews how many sessions a retention run would remove, and roughly how many bytes
+that frees, before you confirm it. A run reports any session it could not remove; those are retried
+on the next run.
 
 ## Security
 

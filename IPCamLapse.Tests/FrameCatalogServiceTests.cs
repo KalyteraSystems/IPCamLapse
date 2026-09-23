@@ -165,7 +165,7 @@ public sealed class FrameCatalogServiceTests : IDisposable
         public Task<CaptureSession> CreateSessionAsync(CaptureSession session) => Task.FromResult(session);
         public Task<List<CaptureSession>> GetAllSessionsAsync() => Task.FromResult(new List<CaptureSession> { _session });
         public Task UpdateSessionAsync(CaptureSession session) => Task.CompletedTask;
-        public Task DeleteSessionAsync(string id) => Task.CompletedTask;
+        public Task<SessionDeletionResult> DeleteSessionAsync(string id) => Task.FromResult(SessionDeletionResult.Success);
         public Task<string> GetSessionStoragePathAsync(string id) => Task.FromResult(_root());
         public Task<string[]> GetSessionImagesAsync(string id) => Task.FromResult(Array.Empty<string>());
         public Task<string?> GetLatestImageAsync(string id) => Task.FromResult<string?>(null);

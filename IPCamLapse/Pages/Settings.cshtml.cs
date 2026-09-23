@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using IPCamLapse.Models;
 using IPCamLapse.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -31,10 +32,13 @@ public sealed class SettingsModel : PageModel
 
     public StorageStatus Storage { get; private set; } = new(0, 1, 0, 0, false, null);
 
+    public RetentionPreview RetentionPreview { get; private set; } = RetentionPreview.Disabled;
+
     public async Task OnGetAsync()
     {
         LoadValues();
         Storage = await _storage.GetStatusAsync();
+        RetentionPreview = await _storage.PreviewRetentionAsync(HttpContext.RequestAborted);
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -42,6 +46,7 @@ public sealed class SettingsModel : PageModel
         if (!ModelState.IsValid)
         {
             Storage = await _storage.GetStatusAsync();
+            RetentionPreview = await _storage.PreviewRetentionAsync(HttpContext.RequestAborted);
             return Page();
         }
         await _settings.SaveAsync(new ApplicationSettings
@@ -57,8 +62,14 @@ public sealed class SettingsModel : PageModel
 
     public async Task<IActionResult> OnPostRunRetentionAsync()
     {
-        var removed = await _storage.ApplyRetentionAsync(HttpContext.RequestAborted);
-        TempData["RetentionResult"] = removed;
+        var result = await _storage.ApplyRetentionAsync(HttpContext.RequestAborted);
+        TempData["RetentionResult"] = result.DeletedSessions;
+        // The default TempData serializer rejects long, so this crosses the redirect as an
+        // invariant-culture string and is parsed back the same way on the page.
+        TempData["RetentionBytes"] = result.DeletedBytes.ToString(CultureInfo.InvariantCulture);
+        TempData["RetentionPartial"] = result.EstimateIsPartial;
+        if (result.FailedSessions > 0)
+            TempData["RetentionFailed"] = string.Join(", ", result.FailedSessionIds);
         return RedirectToPage();
     }
 

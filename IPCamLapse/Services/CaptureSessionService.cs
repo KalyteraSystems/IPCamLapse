@@ -12,7 +12,7 @@ public interface ICaptureSessionService
     Task<CaptureSession?> GetSessionAsync(string id);
     Task<List<CaptureSession>> GetAllSessionsAsync();
     Task UpdateSessionAsync(CaptureSession session);
-    Task DeleteSessionAsync(string id);
+    Task<SessionDeletionResult> DeleteSessionAsync(string id);
     Task<string> GetSessionStoragePathAsync(string id);
     Task<string[]> GetSessionImagesAsync(string id);
     Task<string?> GetLatestImageAsync(string id);
@@ -29,15 +29,18 @@ public sealed class CaptureSessionService : ICaptureSessionService
     private readonly string _baseStoragePath;
     private readonly string _baseStoragePrefix;
     private readonly IDataProtector _credentialProtector;
+    private readonly ISessionFileSystem _files;
     private readonly ILogger<CaptureSessionService> _logger;
     private readonly SemaphoreSlim _persistLock = new(1, 1);
 
     public CaptureSessionService(
         ILogger<CaptureSessionService> logger,
         IDataPathProvider paths,
-        IDataProtectionProvider dataProtectionProvider)
+        IDataProtectionProvider dataProtectionProvider,
+        ISessionFileSystem files)
     {
         _logger = logger;
+        _files = files;
         _credentialProtector = dataProtectionProvider.CreateProtector("IPCamLapse.SessionCredentials.v1");
         _baseStoragePath = Path.GetFullPath(paths.SessionsPath);
         _baseStoragePrefix = _baseStoragePath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -75,27 +78,64 @@ public sealed class CaptureSessionService : ICaptureSessionService
         await PersistSessionAsync(session);
     }
 
-    public Task DeleteSessionAsync(string id)
+    public Task<SessionDeletionResult> DeleteSessionAsync(string id)
     {
-        if (!IsValidSessionId(id) || !_sessions.TryRemove(id, out _))
-            return Task.CompletedTask;
+        if (!IsValidSessionId(id) || !_sessions.ContainsKey(id))
+            return Task.FromResult(SessionDeletionResult.NotFound);
 
-        var jsonPath = Path.Combine(_baseStoragePath, $"{id}.json");
-        if (File.Exists(jsonPath))
-            File.Delete(jsonPath);
+        // Directory first, then metadata, and the session stays in memory until both are gone.
+        // A failure part way through therefore leaves enough behind for a later run to retry.
         var sessionDirectory = GetSessionDirectory(id);
-        if (Directory.Exists(sessionDirectory))
+        var jsonPath = Path.Combine(_baseStoragePath, $"{id}.json");
+
+        // Deletion is attempted unconditionally rather than guarded by an existence check.
+        // Directory.Exists and File.Exists return false both when a path is absent and when
+        // the lookup itself fails, so treating false as proof of absence would skip a delete
+        // that was actually needed. Asking for the delete makes the distinction explicit: a
+        // missing path is a no-op, and a real failure surfaces as an exception.
+        if (!TryDelete(() => _files.DeleteDirectory(sessionDirectory), id, "storage", out var error)
+            || !TryDelete(() => _files.DeleteFile(jsonPath), id, "metadata", out error))
         {
-            try
-            {
-                Directory.Delete(sessionDirectory, true);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to delete storage for session {SessionId}", id);
-            }
+            return Task.FromResult(SessionDeletionResult.Failed(error!));
         }
-        return Task.CompletedTask;
+
+        // The postcondition #34 asks for: both must be gone before this counts as a deletion.
+        if (_files.DirectoryExists(sessionDirectory) || _files.FileExists(jsonPath))
+        {
+            _logger.LogError("Session {SessionId} is still present after deletion", id);
+            return Task.FromResult(SessionDeletionResult.Failed(
+                "Session data is still present after deletion."));
+        }
+
+        _sessions.TryRemove(id, out _);
+        return Task.FromResult(SessionDeletionResult.Success);
+    }
+
+    /// <summary>
+    /// Runs one delete, treating "it was not there" as success and anything else as failure.
+    /// </summary>
+    private bool TryDelete(Action delete, string id, string what, out string? error)
+    {
+        error = null;
+        try
+        {
+            delete();
+            return true;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return true;
+        }
+        catch (FileNotFoundException)
+        {
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to delete {What} for session {SessionId}", what, id);
+            error = exception.Message;
+            return false;
+        }
     }
 
     public Task<string> GetSessionStoragePathAsync(string id)
