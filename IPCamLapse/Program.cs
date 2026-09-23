@@ -137,10 +137,14 @@ app.MapGet("/api/sessions/{id}/frames/{fileName}", async (
         enableRangeProcessing: false);
 });
 
-app.MapGet("/api/sessions/{id}/events", async (string id, int? limit, IFrameCatalogService frames) =>
+app.MapGet("/api/sessions/{id}/events", async (
+    string id,
+    int? limit,
+    IFrameCatalogService frames,
+    HttpContext context) =>
 {
     return Results.Ok(
-        await frames.GetEventsAsync(id, limit ?? 50));
+        await frames.GetEventsAsync(id, limit ?? 50, context.RequestAborted));
 });
 
 app.MapGet("/api/sessions/{id}/events/cloudevents", async (
@@ -148,13 +152,14 @@ app.MapGet("/api/sessions/{id}/events/cloudevents", async (
     int? limit,
     ICaptureSessionService sessions,
     IFrameCatalogService frames,
-    IInteropCaptureEventMapper mapper) =>
+    IInteropCaptureEventMapper mapper,
+    HttpContext context) =>
 {
     if (await sessions.GetSessionAsync(id) is null)
         return Results.NotFound();
 
     var effectiveLimit = Math.Clamp(limit ?? 50, 1, StructuredCloudEventJson.MaxBatchEvents);
-    var records = await frames.GetEventRecordsAsync(id, effectiveLimit);
+    var records = await frames.GetEventRecordsAsync(id, effectiveLimit, context.RequestAborted);
     var cloudEvents = records.Select(record => mapper.Map(id, record));
     var body = StructuredCloudEventJson.SerializeBatch(cloudEvents);
     return Results.Bytes(
