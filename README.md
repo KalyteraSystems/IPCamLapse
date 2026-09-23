@@ -73,6 +73,12 @@ Open <http://127.0.0.1:5080>. Captures, profiles, settings, and credential-prote
 
 The command publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
 
+Recurring daily and weekly windows use the time zone resolved when the process
+starts. Container images normally default to UTC; set `TZ`, for example
+`--env TZ=Europe/London`, when local wall-clock scheduling is required. Changing
+`TZ` takes effect only after the container restarts and affects future recurring
+evaluations. Persisted one-time start values remain UTC instants and do not move.
+
 ## Configuration
 
 Environment variables use double underscores, such as `Storage__DataPath=/srv/ipcamlapse`.

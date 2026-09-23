@@ -21,6 +21,8 @@
     <span class="text-muted">@Model.Health.Checks.Count(check => check.Healthy) of @Model.Health.Checks.Count checks passed</span>
 </div>
 
+<p class="small text-muted mb-4">Active scheduling time zone: @Model.TimeZoneDisplay</p>
+
 <div class="card shadow-sm mb-4">
     <div class="card-body p-0">
         <div class="list-group list-group-flush">
