@@ -9,6 +9,29 @@ namespace IPCamLapse.Tests;
 public sealed class TimelinePageTests
 {
     [Fact]
+    public async Task DynamicFrameCardsUseTheSameMidpointFormattingContract()
+    {
+        var page = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "IPCamLapse", "Pages", "Sessions", "Details.cshtml"));
+        var script = Path.Combine(AppContext.BaseDirectory, "TimelineDynamicCardTest.js");
+        using var process = new System.Diagnostics.Process
+        {
+            StartInfo = new System.Diagnostics.ProcessStartInfo("node", $"\"{script}\" \"{page}\"")
+            {
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            }
+        };
+
+        process.Start();
+        await process.WaitForExitAsync();
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+
+        Assert.True(process.ExitCode == 0, $"Dynamic card test failed: {error}{output}");
+    }
+
+    [Fact]
     public async Task LoadMoreMarkupProvidesRetryStatusAndAccessibleDynamicIcons()
     {
         var root = CreateTemporaryRoot();
@@ -27,9 +50,17 @@ public sealed class TimelinePageTests
             Directory.CreateDirectory(images);
             for (var number = 1; number <= 25; number++)
             {
+                var size = number switch
+                {
+                    24 => 2_560,
+                    25 => 1_572_864,
+                    23 => 2_686_976,
+                    22 => 1_310_720,
+                    _ => 1
+                };
                 await File.WriteAllBytesAsync(
                     Path.Combine(images, $"frame_{number:0000}_20260904_120000.jpg"),
-                    [0]);
+                    new byte[size]);
             }
 
             var response = await client.GetAsync($"/Sessions/Details/{session.Id}");
@@ -42,6 +73,13 @@ public sealed class TimelinePageTests
             Assert.Contains("status.textContent = loadMoreError;", content, StringComparison.Ordinal);
             Assert.Contains("download.innerHTML = '<i class=\"bi bi-download\" aria-hidden=\"true\"></i>';", content, StringComparison.Ordinal);
             Assert.DoesNotContain("firstElementChild.setAttribute", content, StringComparison.Ordinal);
+            Assert.Contains("3 KB", content, StringComparison.Ordinal);
+            Assert.Contains("1.5 MB", content, StringComparison.Ordinal);
+            Assert.Contains("2.6 MB", content, StringComparison.Ordinal);
+            Assert.Contains("1.3 MB", content, StringComparison.Ordinal);
+            Assert.Contains("${formatFrameSize(frame.sizeBytes)}", content, StringComparison.Ordinal);
+            Assert.Contains("roundToOneDecimal(bytes / 1024 ** 2).toFixed(1)", content, StringComparison.Ordinal);
+            Assert.Contains("Math.floor(bytes / 1024 + 0.5)", content, StringComparison.Ordinal);
         }
         finally
         {

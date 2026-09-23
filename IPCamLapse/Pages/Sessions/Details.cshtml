@@ -141,7 +141,7 @@
                                 <img src="@frame.PreviewUrl" alt="Frame @frame.Number captured @frame.CapturedAt.ToLocalTime().ToString("g")" loading="lazy" />
                             </a>
                             <div class="frame-meta">
-                                <span>#@frame.Number · @frame.CapturedAt.ToLocalTime().ToString("HH:mm:ss")</span>
+                                <span>#@frame.Number · @frame.CapturedAt.ToLocalTime().ToString("HH:mm:ss") · @FormatFrameSize(frame.SizeBytes)</span>
                                 <a href="@frame.DownloadUrl" aria-label="Download frame @frame.Number"><i class="bi bi-download" aria-hidden="true"></i></a>
                             </div>
                         </article>
@@ -408,7 +408,7 @@
             const meta = document.createElement('div');
             meta.className = 'frame-meta';
             const label = document.createElement('span');
-            label.textContent = `#${frame.number} · ${new Date(frame.capturedAt).toLocaleTimeString()}`;
+            label.textContent = `#${frame.number} · ${new Date(frame.capturedAt).toLocaleTimeString()} · ${formatFrameSize(frame.sizeBytes)}`;
             const download = document.createElement('a');
             download.href = frame.downloadUrl;
             download.ariaLabel = `Download frame ${frame.number}`;
@@ -416,6 +416,15 @@
             meta.append(label, download);
             article.append(link, meta);
             document.getElementById('frame-gallery').appendChild(article);
+        }
+
+        function formatFrameSize(bytes) {
+            if (bytes >= 1024 ** 2) return `${roundToOneDecimal(bytes / 1024 ** 2).toFixed(1)} MB`;
+            return `${Math.floor(bytes / 1024 + 0.5)} KB`;
+        }
+
+        function roundToOneDecimal(value) {
+            return Math.floor(value * 10 + 0.5) / 10;
         }
 
         function updateStatus(data) {
@@ -522,8 +531,12 @@
     {
         if (bytes >= 1024L * 1024 * 1024) return $"{bytes / 1024d / 1024d / 1024d:F1} GB";
         if (bytes >= 1024L * 1024) return $"{bytes / 1024d / 1024d:F1} MB";
-        return $"{bytes / 1024d:F0} KB";
+        return $"{Math.Round(bytes / 1024d, 0, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} KB";
     }
+
+    string FormatFrameSize(long bytes) => bytes >= 1024L * 1024
+        ? $"{Math.Round(bytes / 1024d / 1024d, 1, MidpointRounding.AwayFromZero).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} MB"
+        : $"{Math.Round(bytes / 1024d, 0, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.InvariantCulture)} KB";
 
     string FormatPercent(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
