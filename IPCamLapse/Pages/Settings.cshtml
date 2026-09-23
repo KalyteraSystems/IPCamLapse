@@ -22,7 +22,16 @@
 }
 @if (TempData["RetentionResult"] is int removed)
 {
-    <div class="alert alert-info">Removed @removed expired @(removed == 1 ? "session" : "sessions").</div>
+    var freed = TempData["RetentionBytes"] is long bytes ? bytes : 0L;
+    <div class="alert alert-info">
+        Removed @removed expired @(removed == 1 ? "session" : "sessions"), freeing @FormatBytes(freed)@(TempData["RetentionPartial"] is true ? " or more (some files could not be measured)" : "").
+    </div>
+}
+@if (TempData["RetentionFailed"] is string failedIds)
+{
+    <div class="alert alert-warning">
+        These sessions could not be removed and will be retried: @failedIds
+    </div>
 }
 
 <div class="row g-4">
@@ -98,6 +107,23 @@
             <div class="card-header"><h2 class="h5 mb-0">Retention cleanup</h2></div>
             <div class="card-body p-4">
                 <p class="small text-muted">Remove finished sessions older than the current retention period now.</p>
+                @if (!Model.RetentionPreview.Enabled)
+                {
+                    <p class="mb-3">Automatic cleanup is disabled: the retention period is set to zero, so no session is ever removed.</p>
+                }
+                else if (Model.RetentionPreview.EligibleSessions == 0)
+                {
+                    <p class="mb-3">No session is old enough to be removed yet.</p>
+                }
+                else
+                {
+                    <p class="mb-3">
+                        This would remove <strong>@Model.RetentionPreview.EligibleSessions</strong>
+                        @(Model.RetentionPreview.EligibleSessions == 1 ? "session" : "sessions")
+                        and free about <strong>@FormatBytes(Model.RetentionPreview.EstimatedBytes)</strong>@(Model.RetentionPreview.EstimateIsPartial ? " or more (some files could not be measured)" : "").
+                    </p>
+                }
+                <p class="small text-muted">Based on the saved retention period. Unsaved edits above are not included until you save.</p>
                 <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Remove all expired sessions and their files?')">Run cleanup</button>
             </div>
         </form>

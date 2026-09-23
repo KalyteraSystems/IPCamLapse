@@ -94,7 +94,8 @@ public sealed class CaptureSessionServiceTests : IDisposable
         => new(
             NullLogger<CaptureSessionService>.Instance,
             new TestDataPathProvider(_root),
-            _dataProtectionProvider);
+            _dataProtectionProvider,
+            new SessionFileSystem());
 
     public void Dispose()
     {

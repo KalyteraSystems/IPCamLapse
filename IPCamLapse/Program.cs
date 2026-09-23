@@ -55,6 +55,7 @@ builder.Services.AddSingleton<IDataPathProvider, DataPathProvider>();
 builder.Services.AddSingleton<IApplicationSettingsService, ApplicationSettingsService>();
 builder.Services.AddSingleton<ICameraUrlPolicy, CameraUrlPolicy>();
 builder.Services.AddSingleton<ICameraProfileService, CameraProfileService>();
+builder.Services.AddSingleton<ISessionFileSystem, SessionFileSystem>();
 builder.Services.AddSingleton<ICaptureSessionService, CaptureSessionService>();
 builder.Services.AddSingleton<IDemoFrameGenerator, DemoFrameGenerator>();
 builder.Services.AddSingleton<ICameraService, CameraService>();
@@ -310,7 +311,16 @@ app.MapDelete("/api/sessions/{id}", async (
     if (await sessions.GetSessionAsync(id) is null)
         return Results.NotFound();
     await captureService.CancelSessionAsync(id);
-    await sessions.DeleteSessionAsync(id);
+    var result = await sessions.DeleteSessionAsync(id);
+    if (result.IsFailure)
+    {
+        // Something is still on disk; saying OK here would lose the session from the UI
+        // while its files stay behind.
+        return Results.Problem(
+            title: "The session could not be fully deleted.",
+            detail: result.Error,
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
     return Results.Ok();
 });
 
