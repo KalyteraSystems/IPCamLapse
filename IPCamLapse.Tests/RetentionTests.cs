@@ -168,6 +168,66 @@ public sealed class RetentionTests : IDisposable
     }
 
     [Fact]
+    public async Task AFailedMetadataLookupStillRemovesTheMetadata()
+    {
+        // File.Exists returns false both when a file is absent and when the lookup fails.
+        // Treating that as proof of absence would skip the delete and still count a deletion.
+        var files = new FakeFileSystem
+        {
+            ReportMissingFor = path => path.EndsWith("aaaaaaaa.json", StringComparison.Ordinal)
+        };
+        var (storage, sessions) = CreateServices(files);
+        await AddSessionAsync(sessions, "aaaaaaaa", SessionStatus.Completed, Now.AddDays(-30), bytes: 100);
+
+        var result = await storage.ApplyRetentionAsync();
+
+        Assert.Equal(1, result.DeletedSessions);
+        Assert.Empty(result.FailedSessionIds);
+        // The point of the test: a counted deletion means the file is genuinely gone.
+        Assert.False(File.Exists(Path.Combine(_paths.SessionsPath, "aaaaaaaa.json")));
+        Assert.Empty(await sessions.GetAllSessionsAsync());
+    }
+
+    [Fact]
+    public async Task AFailedDirectoryLookupStillRemovesTheDirectory()
+    {
+        var files = new FakeFileSystem
+        {
+            ReportMissingFor = path => path.EndsWith("aaaaaaaa", StringComparison.Ordinal)
+        };
+        var (storage, sessions) = CreateServices(files);
+        await AddSessionAsync(sessions, "aaaaaaaa", SessionStatus.Completed, Now.AddDays(-30), bytes: 100);
+
+        var result = await storage.ApplyRetentionAsync();
+
+        Assert.Equal(1, result.DeletedSessions);
+        Assert.Empty(result.FailedSessionIds);
+        Assert.False(Directory.Exists(Path.Combine(_paths.SessionsPath, "aaaaaaaa")));
+        Assert.Empty(await sessions.GetAllSessionsAsync());
+    }
+
+    [Fact]
+    public async Task AMetadataFileLeftBehindByASilentDeleteIsReportedAsAFailure()
+    {
+        // A delete that reports success without removing anything: the postcondition is the
+        // only thing standing between that and a session counted as deleted while on disk.
+        var files = new FakeFileSystem
+        {
+            SilentlySkipDeleteFor = path => path.EndsWith("aaaaaaaa.json", StringComparison.Ordinal)
+        };
+        var (storage, sessions) = CreateServices(files);
+        await AddSessionAsync(sessions, "aaaaaaaa", SessionStatus.Completed, Now.AddDays(-30), bytes: 100);
+
+        var result = await storage.ApplyRetentionAsync();
+
+        Assert.Equal(0, result.DeletedSessions);
+        Assert.Equal("aaaaaaaa", Assert.Single(result.FailedSessionIds));
+        Assert.True(File.Exists(Path.Combine(_paths.SessionsPath, "aaaaaaaa.json")));
+        // Retained in memory, so a later run retries it.
+        Assert.Single(await sessions.GetAllSessionsAsync());
+    }
+
+    [Fact]
     public async Task DeletingAMissingSessionIsNotAFailure()
     {
         var (_, sessions) = CreateServices();
@@ -243,14 +303,28 @@ public sealed class RetentionTests : IDisposable
         public Func<string, bool>? FailLengthFor { get; init; }
         public bool FailDeleteFile { get; set; }
 
-        public bool DirectoryExists(string path) => _real.DirectoryExists(path);
+        /// <summary>
+        /// Reports a path as absent although it exists, which is what Directory.Exists and
+        /// File.Exists do when the lookup itself fails rather than when the path is missing.
+        /// </summary>
+        public Func<string, bool>? ReportMissingFor { get; init; }
 
-        public bool FileExists(string path) => _real.FileExists(path);
+        /// <summary>Accepts a delete and does nothing, leaving the path behind.</summary>
+        public Func<string, bool>? SilentlySkipDeleteFor { get; init; }
+
+        public bool DirectoryExists(string path)
+            => ReportMissingFor?.Invoke(path.TrimEnd(Path.DirectorySeparatorChar)) != true
+                && _real.DirectoryExists(path);
+
+        public bool FileExists(string path)
+            => ReportMissingFor?.Invoke(path) != true && _real.FileExists(path);
 
         public void DeleteDirectory(string path)
         {
             if (FailDeleteDirectoryFor?.Invoke(path.TrimEnd(Path.DirectorySeparatorChar)) == true)
                 throw new IOException("Injected directory failure.");
+            if (SilentlySkipDeleteFor?.Invoke(path.TrimEnd(Path.DirectorySeparatorChar)) == true)
+                return;
             _real.DeleteDirectory(path);
         }
 
@@ -258,6 +332,8 @@ public sealed class RetentionTests : IDisposable
         {
             if (FailDeleteFile)
                 throw new IOException("Injected file failure.");
+            if (SilentlySkipDeleteFor?.Invoke(path) == true)
+                return;
             _real.DeleteFile(path);
         }
 

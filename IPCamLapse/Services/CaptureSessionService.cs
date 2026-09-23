@@ -86,35 +86,56 @@ public sealed class CaptureSessionService : ICaptureSessionService
         // Directory first, then metadata, and the session stays in memory until both are gone.
         // A failure part way through therefore leaves enough behind for a later run to retry.
         var sessionDirectory = GetSessionDirectory(id);
-        if (_files.DirectoryExists(sessionDirectory))
+        var jsonPath = Path.Combine(_baseStoragePath, $"{id}.json");
+
+        // Deletion is attempted unconditionally rather than guarded by an existence check.
+        // Directory.Exists and File.Exists return false both when a path is absent and when
+        // the lookup itself fails, so treating false as proof of absence would skip a delete
+        // that was actually needed. Asking for the delete makes the distinction explicit: a
+        // missing path is a no-op, and a real failure surfaces as an exception.
+        if (!TryDelete(() => _files.DeleteDirectory(sessionDirectory), id, "storage", out var error)
+            || !TryDelete(() => _files.DeleteFile(jsonPath), id, "metadata", out error))
         {
-            try
-            {
-                _files.DeleteDirectory(sessionDirectory);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to delete storage for session {SessionId}", id);
-                return Task.FromResult(SessionDeletionResult.Failed(exception.Message));
-            }
+            return Task.FromResult(SessionDeletionResult.Failed(error!));
         }
 
-        var jsonPath = Path.Combine(_baseStoragePath, $"{id}.json");
-        if (_files.FileExists(jsonPath))
+        // The postcondition #34 asks for: both must be gone before this counts as a deletion.
+        if (_files.DirectoryExists(sessionDirectory) || _files.FileExists(jsonPath))
         {
-            try
-            {
-                _files.DeleteFile(jsonPath);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to delete metadata for session {SessionId}", id);
-                return Task.FromResult(SessionDeletionResult.Failed(exception.Message));
-            }
+            _logger.LogError("Session {SessionId} is still present after deletion", id);
+            return Task.FromResult(SessionDeletionResult.Failed(
+                "Session data is still present after deletion."));
         }
 
         _sessions.TryRemove(id, out _);
         return Task.FromResult(SessionDeletionResult.Success);
+    }
+
+    /// <summary>
+    /// Runs one delete, treating "it was not there" as success and anything else as failure.
+    /// </summary>
+    private bool TryDelete(Action delete, string id, string what, out string? error)
+    {
+        error = null;
+        try
+        {
+            delete();
+            return true;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return true;
+        }
+        catch (FileNotFoundException)
+        {
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to delete {What} for session {SessionId}", what, id);
+            error = exception.Message;
+            return false;
+        }
     }
 
     public Task<string> GetSessionStoragePathAsync(string id)

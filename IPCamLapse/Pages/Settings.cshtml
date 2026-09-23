@@ -22,7 +22,10 @@
 }
 @if (TempData["RetentionResult"] is int removed)
 {
-    var freed = TempData["RetentionBytes"] is long bytes ? bytes : 0L;
+    var freed = TempData["RetentionBytes"] is string bytesText
+        && long.TryParse(bytesText, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var bytes)
+            ? bytes
+            : 0L;
     <div class="alert alert-info">
         Removed @removed expired @(removed == 1 ? "session" : "sessions"), freeing @FormatBytes(freed)@(TempData["RetentionPartial"] is true ? " or more (some files could not be measured)" : "").
     </div>
