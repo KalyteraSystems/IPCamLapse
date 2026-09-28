@@ -138,7 +138,7 @@ Thanks to everyone who improves IPCamLapse. The [contributors graph](https://git
 
 ## Maintainer
 
-IPCamLapse is maintained by [el kampu](https://github.com/elkampu) through [Kalytera Systems](https://github.com/KalyteraSystems). Product and company information is available at [kalyterasystems.com](https://kalyterasystems.com).
+IPCamLapse is maintained by [Kalytera Systems](https://github.com/KalyteraSystems). Product and company information is available at [kalyterasystems.com](https://kalyterasystems.com).
 
 ## License
 
