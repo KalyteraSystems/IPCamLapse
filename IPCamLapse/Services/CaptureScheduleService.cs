@@ -73,8 +73,8 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
     private ScheduleAvailability EvaluateRecurring(CaptureSchedule schedule, DateTime utcNow, Func<DateTime, bool> includesDate)
     {
         var localToday = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _timeZone).Date;
-        var start = schedule.WindowStartLocal!.Value;
-        var end = schedule.WindowEndLocal!.Value;
+        var start = schedule.WindowStartLocal ?? TimeSpan.Zero;
+        var end = schedule.WindowEndLocal ?? TimeSpan.FromDays(1);
         DateTime? next = null;
 
         for (var offset = -1; offset <= 8; offset++)
