@@ -160,6 +160,81 @@ public sealed class CaptureScheduleServiceTests
         Assert.True(result.Active);
     }
 
+    [Theory]
+    [InlineData(ScheduleFrequency.Daily)]
+    [InlineData(ScheduleFrequency.Weekly)]
+    public void WindowEndingInRepeatedHourExcludesFirstOccurrenceAfterEnd(ScheduleFrequency frequency)
+    {
+        var schedule = new CaptureSchedule
+        {
+            Frequency = frequency,
+            WeeklyDay = DayOfWeek.Sunday,
+            WindowStartLocal = TimeSpan.FromMinutes(30),
+            WindowEndLocal = TimeSpan.FromHours(1.25)
+        };
+        Assert.True(_service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 5, 10, 0, DateTimeKind.Utc)).Active);
+        var result = _service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 5, 30, 0, DateTimeKind.Utc));
+
+        Assert.False(result.Active);
+        Assert.Equal(new DateTime(2026, 11, 1, 6, 0, 0, DateTimeKind.Utc), result.NextStartUtc);
+        Assert.True(_service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 6, 10, 0, DateTimeKind.Utc)).Active);
+        Assert.False(_service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 6, 15, 0, DateTimeKind.Utc)).Active);
+    }
+
+    [Theory]
+    [InlineData(ScheduleFrequency.Daily)]
+    [InlineData(ScheduleFrequency.Weekly)]
+    public void WindowStartingInRepeatedHourWaitsForSecondStart(ScheduleFrequency frequency)
+    {
+        var schedule = new CaptureSchedule
+        {
+            Frequency = frequency,
+            WeeklyDay = DayOfWeek.Sunday,
+            WindowStartLocal = TimeSpan.FromHours(1.75),
+            WindowEndLocal = TimeSpan.FromHours(2.25)
+        };
+
+        Assert.True(_service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 5, 50, 0, DateTimeKind.Utc)).Active);
+        var betweenOccurrences = _service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 6, 20, 0, DateTimeKind.Utc));
+        Assert.False(betweenOccurrences.Active);
+        Assert.Equal(new DateTime(2026, 11, 1, 6, 45, 0, DateTimeKind.Utc),
+            betweenOccurrences.NextStartUtc);
+        Assert.True(_service.GetAvailability(schedule,
+            new DateTime(2026, 11, 1, 6, 50, 0, DateTimeKind.Utc)).Active);
+    }
+
+    [Theory]
+    [InlineData(ScheduleFrequency.Daily)]
+    [InlineData(ScheduleFrequency.Weekly)]
+    public void WindowEndingAtFallBackTransitionHasNoSecondOccurrence(ScheduleFrequency frequency)
+    {
+        var result = _service.GetAvailability(new CaptureSchedule
+        {
+            Frequency = frequency,
+            WeeklyDay = DayOfWeek.Sunday,
+            WindowStartLocal = TimeSpan.FromMinutes(30),
+            WindowEndLocal = TimeSpan.FromHours(1)
+        }, new DateTime(2026, 11, 1, 5, 30, 0, DateTimeKind.Utc));
+
+        Assert.False(result.Active);
+        var nextDay = frequency == ScheduleFrequency.Daily ? 2 : 8;
+        Assert.Equal(new DateTime(2026, 11, nextDay, 5, 30, 0, DateTimeKind.Utc),
+            result.NextStartUtc);
+        Assert.False(_service.GetAvailability(new CaptureSchedule
+        {
+            Frequency = frequency,
+            WeeklyDay = DayOfWeek.Sunday,
+            WindowStartLocal = TimeSpan.FromMinutes(30),
+            WindowEndLocal = TimeSpan.FromHours(1)
+        }, new DateTime(2026, 11, 1, 6, 0, 0, DateTimeKind.Utc)).Active);
+    }
+
     [Fact]
     public void SpringForwardGapDoesNotActivateBeforeAdjustedStart()
     {
