@@ -88,6 +88,24 @@ public sealed class CaptureScheduleServiceTests
     }
 
     [Fact]
+    public void WeeklyScheduleWithoutWindowCoversOnlyTheSelectedDay()
+    {
+        var schedule = new CaptureSchedule
+        {
+            Frequency = ScheduleFrequency.Weekly,
+            WeeklyDay = DayOfWeek.Monday
+        };
+        var monday = _service.GetAvailability(schedule,
+            new DateTime(2026, 8, 31, 14, 0, 0, DateTimeKind.Utc));
+        Assert.True(monday.Active);
+
+        var tuesday = _service.GetAvailability(schedule,
+            new DateTime(2026, 9, 1, 4, 0, 0, DateTimeKind.Utc));
+        Assert.False(tuesday.Active);
+        Assert.Equal(new DateTime(2026, 9, 7, 4, 0, 0, DateTimeKind.Utc), tuesday.NextStartUtc);
+    }
+
+    [Fact]
     public void AmbiguousOneTimeStartChoosesEarlierUtcOccurrence()
     {
         var repeated = new DateTime(2026, 11, 1, 1, 30, 0, DateTimeKind.Unspecified);
