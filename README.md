@@ -13,10 +13,10 @@ IPCamLapse is an open-source [Kalytera Systems](https://kalyterasystems.com) cap
 - Measures active capture time correctly across pauses and schedule windows
 - Keeps captures on a fixed timeline even when camera requests are slow
 - Retries failed snapshots with exponential backoff and clear diagnostics
-- Saves reusable camera profiles with protected credentials
+- Saves reusable camera profiles with protected credentials and tests them from the Cameras page
 - Offers a hardware-free demo camera
-- Schedules one-time, daily, or weekly captures, including overnight windows
-- Tracks estimated and actual storage, disk reserve, retention, and low-space warnings
+- Schedules one-time, daily, or weekly captures, including overnight windows, in a displayed time zone that handles DST changes
+- Tracks estimated and actual storage, disk reserve, retention with a cleanup preview, and low-space warnings
 - Browses and downloads frames from a paged timeline gallery
 - Renders any frame range with resolution, fit/crop, frame rate, quality, and elapsed-time overlay controls
 - Regenerates and downloads H.264 MP4 videos
@@ -42,6 +42,12 @@ The adapters and CLI make no network connections and store no credentials. Gener
 
 Download a self-contained Windows x64, Linux x64, or Linux ARM64 archive from [Releases](https://github.com/KalyteraSystems/IPCamLapse/releases), extract it, and run `IPCamLapse.exe` on Windows or `./IPCamLapse` on Linux. Open <http://127.0.0.1:5000>, create a session with **Demo camera**, and press Start.
 
+On Windows x64 you can instead install the portable package from WinGet, which also installs FFmpeg as a dependency, and then start it with the `IPCamLapse` command:
+
+```console
+winget install --id KalyteraSystems.IPCamLapse --exact
+```
+
 FFmpeg is needed to render video. Put `ffmpeg.exe` beside the application on Windows or install `ffmpeg` in a standard system path on Linux. The System check page verifies FFmpeg, data-directory permissions, and free disk space. New installations keep runtime data in the operating system's local application-data directory; an existing `data` directory beside the app is reused automatically.
 
 ## Run from source
@@ -50,7 +56,7 @@ Requirements:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [FFmpeg](https://ffmpeg.org/download.html) for video rendering
-- An HTTP or HTTPS JPEG snapshot endpoint for a real camera
+- An HTTP or HTTPS JPEG or PNG snapshot endpoint for a real camera
 
 ```console
 git clone https://github.com/KalyteraSystems/IPCamLapse.git
@@ -69,7 +75,7 @@ Docker images include FFmpeg and run as a non-root user. Run the published image
 docker run --detach --name ipcamlapse --restart unless-stopped --publish 127.0.0.1:5080:8080 --env LocalAccess__AllowPrivateNetworks=true --volume ipcamlapse-data:/data ghcr.io/kalyterasystems/ipcamlapse:latest
 ```
 
-Open <http://127.0.0.1:5080>. Captures, profiles, settings, and credential-protection keys are kept in the `ipcamlapse-data` volume. The `latest` and versioned images at `ghcr.io/kalyterasystems/ipcamlapse` support Linux AMD64 and ARM64.
+Open <http://127.0.0.1:5080>. Captures, profiles, settings, and credential-protection keys are kept in the `ipcamlapse-data` volume. The `latest` and versioned images at `ghcr.io/kalyterasystems/ipcamlapse` support Linux AMD64 and ARM64. `latest` is rebuilt from every change to `main` and can contain unreleased work; use a release tag such as `0.4.4` to run a published version.
 
 The command publishes the port on host loopback only. It explicitly allows private bridge traffic inside the container so requests forwarded by Docker can reach the app. Do not change the host binding to `0.0.0.0` unless an authenticated reverse proxy supplies the missing access control.
 

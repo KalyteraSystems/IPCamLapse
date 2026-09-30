@@ -4,6 +4,8 @@ IPCamLapse is developed in small, testable releases. Issues are the source of tr
 
 ## Shipped
 
+Shipped means merged to `main`. The [Changelog](../CHANGELOG.md) separates tagged releases from unreleased changes.
+
 - Explicit capture states and pause-safe timing
 - Fixed-timeline capture with retry diagnostics
 - Demo camera, scheduling, camera profiles, and storage policies
@@ -14,16 +16,20 @@ IPCamLapse is developed in small, testable releases. Issues are the source of tr
 - Alpha OpenCamInterop event contracts, synthetic fixtures, Frigate/ONVIF transformers, and IPCamLapse CloudEvents export
 - Offline OpenCamInterop EventLab `inspect`, manifest `verify`, and streaming `replay` commands
 - Executable fixture inventory and generated behavior matrix with standalone Windows/Ubuntu checks
+- WinGet portable package `KalyteraSystems.IPCamLapse` for Windows x64, starting with 0.4.4
+- Activity-log download, tail reads of recent events, retryable timeline Load more, and per-frame file sizes
+- Container liveness endpoint and health check, configurable camera timeout, and PNG snapshots
+- Explicit schedule time zone with DST-safe recurring windows, camera-profile connection tests, and retention preview
 
 ## Next
 
-- WinGet installation for Windows
-- Small timeline and activity-log improvements ([good first issues](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue))
+- Small improvements tracked as [good first issues](https://github.com/KalyteraSystems/IPCamLapse/labels/good%20first%20issue)
 - Keep IPCamLapse's OpenCamInterop source copy aligned with reviewed standalone releases
 - Fixture-driven OpenCamInterop cases for genuinely distinct externally reported camera and NVR behavior
 
 ## Later
 
+- Secure RTSP and RTSPS camera sources ([#12](https://github.com/KalyteraSystems/IPCamLapse/issues/12)); the tracking issue is currently blocked
 - More camera-specific setup guides
 - Optional authenticated remote access
 - Import and export for settings and profiles

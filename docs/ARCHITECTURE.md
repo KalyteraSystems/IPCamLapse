@@ -7,17 +7,18 @@ IPCamLapse is a local-first ASP.NET Core application. Razor Pages serve the inte
 | Component | Responsibility |
 |---|---|
 | Razor Pages | Sessions, camera profiles, storage settings, system checks, gallery, and video controls |
-| Minimal APIs | Session actions, camera tests, frames, status, rendering, and downloads |
+| Minimal APIs | Session actions, camera tests, frames, status, rendering, downloads, and the `/healthz` liveness probe |
 | `CaptureBackgroundService` | Session lifecycle, fixed-timeline capture, retries, scheduling, and rendering transitions |
+| `CaptureScheduleService` | One-time starts and daily or weekly windows in the time zone resolved at startup, including DST gaps and repeated hours |
 | `CaptureSessionService` | Migration-safe JSON persistence and protected one-time camera credentials |
 | `CameraProfileService` | Reusable camera endpoints and protected passwords |
-| `CameraService` | Bounded HTTP snapshot requests, JPEG validation, diagnostics, and demo frames |
+| `CameraService` | Bounded HTTP snapshot requests, JPEG and PNG validation, diagnostics, and demo frames |
 | `FrameCatalogService` | Frame discovery, downloads, range selection, and the append-only event log |
 | `VideoService` | FFmpeg concat input, resize/crop filters, overlays, quality, and MP4 output |
-| `StorageService` | Usage estimates, disk reserve, storage budget, and retention cleanup |
+| `StorageService` | Usage estimates, disk reserve, storage budget, retention preview, and retention cleanup with per-session failure reporting |
 | `SystemHealthService` | FFmpeg, write-permission, and free-space checks |
 | SignalR hub | Live state, progress, and camera diagnostics |
-| `OpenCamInterop` | Pure, bounded Frigate and ONVIF transforms plus CloudEvents validation and JSON formatting |
+| `OpenCamInterop` | Embedded snapshot of the standalone library: pure, bounded Frigate and ONVIF transforms plus CloudEvents validation and JSON formatting |
 | `InteropCaptureEventMapper` | Privacy-minimized projection of append-only IPCamLapse events into the interoperability contract |
 
 ## Capture lifecycle
@@ -39,6 +40,8 @@ Ready ──start──> Capturing <──resume── Paused
 Each session stores completed active seconds and the start of its current active segment. Pausing closes that segment, so wall-clock time spent paused or waiting for a schedule does not advance progress.
 
 Capture deadlines advance from the previous deadline, not from the end of the last camera request. If a request takes longer than an interval, missed slots are skipped and the next future point on the original timeline is selected. This prevents drift during long-running captures.
+
+Schedules use one `TimeZoneInfo` resolved when the process starts (the host's local zone, or `TZ` in a container). One-time starts are converted to UTC when the session is created and never move afterwards. Daily and weekly windows are evaluated in that zone: a wall time skipped by a spring-forward change moves forward by the gap, and a window that starts or ends in a repeated fall-back hour is split at the offset change so the wall-clock gap between the two occurrences is not active. An ambiguous one-time start uses the earlier instant.
 
 ## Data layout
 
@@ -68,7 +71,7 @@ The application has no user authentication and should not be bound directly to a
 
 ## Interoperability boundary
 
-`OpenCamInterop` targets .NET 10 and is maintained as a standalone source subtree so other applications can consume it without depending on the IPCamLapse web application. Adapters receive an `AdapterMessage` containing bytes and metadata from a caller-owned transport. They never connect to a broker or camera themselves. Output validation and structured/batch encoding use the official CloudEvents C# SDK.
+`OpenCamInterop` targets .NET 10 and has no dependency on the IPCamLapse web application. It is developed in the [standalone OpenCamInterop repository](https://github.com/KalyteraSystems/OpenCamInterop); the `OpenCamInterop/` directory here is a reviewed source snapshot that is refreshed separately (see [OpenCamInterop integration](OPEN_CAM_INTEROP.md)). Adapters receive an `AdapterMessage` containing bytes and metadata from a caller-owned transport. They never connect to a broker or camera themselves. Output validation and structured/batch encoding use the official CloudEvents C# SDK.
 
 The Frigate adapter hashes the exact adapter/topic/payload tuple for deterministic delivery identity. The ONVIF adapter parses only supported WS-Notification container paths and hashes each normalized notification independently of its SOAP wrapper. Generic ONVIF item values cross the boundary only as `[redacted]`; canonical motion events expose a Boolean plus opaque correlation identifiers.
 

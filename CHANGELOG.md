@@ -8,6 +8,27 @@
 - Read-only IPCamLapse activity export using CloudEvents batch JSON
 - Offline OpenCamInterop EventLab inspect/verify/replay CLI, executable fixture manifest, and generated compatibility matrix
 - Standalone OpenCamInterop solution, contributor boundary, and Windows/Ubuntu validation while IPCamLapse retains a source-integrated first-party copy
+- `GET /healthz` container liveness endpoint (empty `204`, local-only), a Docker health check, and a container runtime smoke test in CI
+- `CameraAccess:RequestTimeoutSeconds` setting for camera HTTP requests (default 30 seconds, range 1–120)
+- Validated PNG camera snapshots alongside JPEG
+- Test connection for saved and demo camera profiles from the Cameras page
+- File size on each timeline frame, including frames added by Load more
+- Retention preview on the Storage page: eligible sessions and estimated bytes freed before a run
+- Active scheduling time zone and current offset on the New session and System check pages
+
+### Changed
+
+- Recurring daily and weekly windows use one time zone resolved at startup, while one-time starts stay stored as UTC instants. A wall time skipped by a spring-forward change moves forward by the DST gap, an ambiguous one-time start uses the earlier instant, and a recurring window that starts or ends in a repeated fall-back hour is split at the offset change so the wall-clock gap between the two occurrences is not captured
+- Retention runs and manual session deletion no longer report success while files remain on disk; a session that could not be removed stays listed, and retention retries it on the next run
+- Recent activity events are read from the end of the log file instead of loading the whole file
+- Release publication creates a draft release, uploads every archive, and then publishes it; only the final release job can write repository contents
+- Code ownership and the maintainer link point to Kalytera Systems
+- Test dependencies updated to Microsoft.AspNetCore.Mvc.Testing 10.0.12 and Microsoft.NET.Test.Sdk 18.10.1
+
+### Fixed
+
+- A failed Timeline **Load more** request shows a retryable status instead of failing silently, and a retry cannot duplicate frames
+- Running capture loops are awaited during application shutdown
 
 ### Security
 
@@ -20,6 +41,7 @@
 
 - CodeQL security analysis for pushes, pull requests, and weekly scans
 - Linux ARM64 self-contained release archive
+- Activity-log download from the session page
 
 ### Changed
 
