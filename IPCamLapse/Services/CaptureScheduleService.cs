@@ -87,13 +87,41 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
             var endWall = date + end + (end <= start ? TimeSpan.FromDays(1) : TimeSpan.Zero);
             var startCandidates = WallTimeCandidates(startWall).ToList();
             var endCandidates = WallTimeCandidates(endWall).ToList();
-            foreach (var startUtc in startCandidates)
+            var intervals = new List<(DateTime Start, DateTime End)>();
+            if (startCandidates.Count == 1 && endCandidates.Count == 2
+                && startCandidates[0] < endCandidates[0])
             {
-                var matchingEnds = endCandidates.Where(candidate => candidate > startUtc);
-                var endUtc = startCandidates.Count == 1
-                    ? matchingEnds.LastOrDefault()
-                    : matchingEnds.FirstOrDefault();
-                if (endUtc == default)
+                // The end wall time occurs twice, but the start occurs once before the
+                // fall-back. These are two distinct windows: the first ends at the first
+                // occurrence, and the second resumes when the clock repeats. Treating
+                // them as one interval incorrectly includes the gap between occurrences.
+                intervals.Add((startCandidates[0], endCandidates[0]));
+                intervals.Add((FindOffsetTransition(endCandidates[0], endCandidates[1]),
+                    endCandidates[1]));
+            }
+            else if (startCandidates.Count == 2 && endCandidates.Count == 1
+                && startCandidates[1] < endCandidates[0])
+            {
+                // The start wall time repeats but the end does not. The first
+                // occurrence pauses when the clock jumps back, then resumes at
+                // the second start instead of including the repeated pre-start gap.
+                intervals.Add((startCandidates[0],
+                    FindOffsetTransition(startCandidates[0], startCandidates[1])));
+                intervals.Add((startCandidates[1], endCandidates[0]));
+            }
+            else
+            {
+                foreach (var startUtc in startCandidates)
+                {
+                    var endUtc = endCandidates.FirstOrDefault(candidate => candidate > startUtc);
+                    if (endUtc != default)
+                        intervals.Add((startUtc, endUtc));
+                }
+            }
+
+            foreach (var (startUtc, endUtc) in intervals)
+            {
+                if (startUtc >= endUtc)
                     continue;
                 if (utcNow >= startUtc && utcNow < endUtc)
                     return new ScheduleAvailability(true, null);
@@ -103,6 +131,23 @@ public sealed class CaptureScheduleService : ICaptureScheduleService
         }
 
         return new ScheduleAvailability(false, next);
+    }
+
+    private DateTime FindOffsetTransition(DateTime earlierUtc, DateTime laterUtc)
+    {
+        var earlierOffset = _timeZone.GetUtcOffset(earlierUtc);
+        var lower = earlierUtc.Ticks;
+        var upper = laterUtc.Ticks;
+        while (upper - lower > 1)
+        {
+            var middle = lower + (upper - lower) / 2;
+            if (_timeZone.GetUtcOffset(new DateTime(middle, DateTimeKind.Utc)) == earlierOffset)
+                lower = middle;
+            else
+                upper = middle;
+        }
+
+        return new DateTime(upper, DateTimeKind.Utc);
     }
 
     private IEnumerable<DateTime> WallTimeCandidates(DateTime wallTime)
