@@ -12,19 +12,28 @@ public sealed class CreateModel : PageModel
     private readonly ICameraUrlPolicy _cameraUrlPolicy;
     private readonly IStorageService _storage;
     private readonly IApplicationSettingsService _applicationSettings;
+    private readonly ICaptureScheduleService _schedule;
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeZoneInfo _timeZone;
 
     public CreateModel(
         ICaptureSessionService sessions,
         ICameraProfileService profiles,
         ICameraUrlPolicy cameraUrlPolicy,
         IStorageService storage,
-        IApplicationSettingsService applicationSettings)
+        IApplicationSettingsService applicationSettings,
+        ICaptureScheduleService schedule,
+        TimeProvider timeProvider,
+        TimeZoneInfo timeZone)
     {
         _sessions = sessions;
         _profiles = profiles;
         _cameraUrlPolicy = cameraUrlPolicy;
         _storage = storage;
         _applicationSettings = applicationSettings;
+        _schedule = schedule;
+        _timeProvider = timeProvider;
+        _timeZone = timeZone;
     }
 
     [BindProperty]
@@ -37,6 +46,7 @@ public sealed class CreateModel : PageModel
     public IReadOnlyList<CameraProfile> Profiles { get; private set; } = Array.Empty<CameraProfile>();
     public StorageStatus Storage { get; private set; } = new(0, 1, 0, 0, false, null);
     public long EstimatedFrameBytes { get; private set; } = 350 * 1024;
+    public string TimeZoneDisplay => FormatTimeZone(_timeZone, _timeProvider.GetUtcNow());
 
     public async Task OnGetAsync()
     {
@@ -75,12 +85,10 @@ public sealed class CreateModel : PageModel
             Session.Configuration.AllowInvalidCertificate = false;
         }
         Session.Id = Guid.NewGuid().ToString("N")[..8];
-        Session.CreatedAt = DateTime.UtcNow;
+        Session.CreatedAt = _timeProvider.GetUtcNow().UtcDateTime;
         Session.Status = SessionStatus.Ready;
         Session.Configuration.Schedule.StartAtUtc = StartAtLocal.HasValue
-            ? TimeZoneInfo.ConvertTimeToUtc(
-                DateTime.SpecifyKind(StartAtLocal.Value, DateTimeKind.Unspecified),
-                TimeZoneInfo.Local)
+            ? _schedule.ConvertWallTimeToUtc(StartAtLocal.Value)
             : null;
         await _sessions.CreateSessionAsync(Session);
         return RedirectToPage("/Sessions/Details", new { id = Session.Id });
@@ -116,7 +124,8 @@ public sealed class CreateModel : PageModel
         var schedule = Session.Configuration.Schedule;
         if (schedule.Frequency == ScheduleFrequency.Once && !StartAtLocal.HasValue)
             ModelState.AddModelError(nameof(StartAtLocal), "Choose a start time.");
-        if (StartAtLocal.HasValue && StartAtLocal.Value <= DateTime.Now &&
+        if (StartAtLocal.HasValue &&
+            _schedule.ConvertWallTimeToUtc(StartAtLocal.Value) <= _timeProvider.GetUtcNow().UtcDateTime &&
             schedule.Frequency == ScheduleFrequency.Once)
         {
             ModelState.AddModelError(nameof(StartAtLocal), "Start time must be in the future.");
@@ -143,5 +152,12 @@ public sealed class CreateModel : PageModel
         Profiles = await _profiles.GetAllAsync();
         Storage = await _storage.GetStatusAsync();
         EstimatedFrameBytes = _applicationSettings.Current.EstimatedFrameBytes;
+    }
+
+    private static string FormatTimeZone(TimeZoneInfo timeZone, DateTimeOffset now)
+    {
+        var offset = timeZone.GetUtcOffset(now);
+        var sign = offset < TimeSpan.Zero ? "−" : "+";
+        return $"{timeZone.Id} (UTC{sign}{offset.Duration():hh\\:mm})";
     }
 }
